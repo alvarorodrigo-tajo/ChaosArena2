@@ -10,16 +10,16 @@ import android.graphics.RectF;
 public class Player {
 
     public enum AttackType { PUNCH, KICK, SPECIAL }
-    public enum State      { IDLE, WALK, ATTACKING, HURT }
+    public enum State      { IDLE, WALK, ATTACKING, HURT, DEAD }
 
     // ── Animaciones ───────────────────────────────────────────────────────────
-    private SpriteAnimation walkAnim, idleAnim, punchAnim, kickAnim, hurtAnim, jumpAnim;
+    private SpriteAnimation walkAnim, idleAnim, punchAnim, kickAnim, kickVisualAnim, hurtAnim, jumpAnim, deathAnim;
 
     // ── Estado ────────────────────────────────────────────────────────────────
     private State      currentState     = State.IDLE;
     private AttackType currentAttackType;
-    private float      stateTime, attackTime, hurtTime, jumpTime;
-    private boolean    hasJumpAnim, hasKickAnim;
+    private float      stateTime, attackTime, hurtTime, jumpTime, deathTime;
+    private boolean    hasJumpAnim, hasKickAnim, hasDeathAnim, hasHurtAnim;
 
     // ── Física ────────────────────────────────────────────────────────────────
     public float x, y, velocityY = 0;
@@ -79,17 +79,26 @@ public class Player {
         punchAnim = SpriteAnimation.load(assets, folder, charPrefix + "_attack1",0.08f, SpriteAnimation.PlayMode.NORMAL);
         kickAnim  = SpriteAnimation.load(assets, folder, charPrefix + "_attack2",0.10f, SpriteAnimation.PlayMode.NORMAL);
         hurtAnim  = SpriteAnimation.load(assets, folder, charPrefix + "_takehit",0.12f, SpriteAnimation.PlayMode.NORMAL);
-        jumpAnim    = SpriteAnimation.load(assets, folder, charPrefix + "_jump", 0.10f, SpriteAnimation.PlayMode.LOOP);
-        hasJumpAnim = jumpAnim.getFrameWidth() > 1;  // fallback bitmap es 1x1
-        hasKickAnim = kickAnim.getFrameWidth() > 1;  // fallback bitmap es 1x1
+        jumpAnim    = SpriteAnimation.load(assets, folder, charPrefix + "_jump",  0.10f, SpriteAnimation.PlayMode.LOOP);
+        deathAnim   = SpriteAnimation.load(assets, folder, charPrefix + "_death", 0.12f, SpriteAnimation.PlayMode.NORMAL);
+        hasJumpAnim  = jumpAnim.getFrameWidth()  > 1;
+        hasKickAnim  = kickAnim.getFrameWidth()  > 1;
+        hasDeathAnim = deathAnim.getFrameWidth() > 1;
+        hasHurtAnim  = hurtAnim.getFrameWidth()  > 1;
+
+        // Si no hay animación de patada, usar la animación de carrera como "ataque de carga"
+        // → visualmente completamente distinta al ataque normal (dash/embestida)
+        if (kickVisualAnim != null && kickVisualAnim != kickAnim) kickVisualAnim.recycle();
+        kickVisualAnim = hasKickAnim ? kickAnim
+                : SpriteAnimation.load(assets, folder, charPrefix + "_run", 0.07f, SpriteAnimation.PlayMode.NORMAL);
 
         calibrateScale(charPrefix);
     }
 
     private void calibrateScale(String prefix) {
         // drawOffsetY = -(feet_y_in_frame * scale): alinea los pies del sprite con el groundY del canvas
-        if (prefix.contains("samurai")) {
-            scale = 13.0f; drawOffsetX = 0f; drawOffsetY = -1053f;
+        if (prefix.contains("subzero")) {
+            scale = 4.0f; drawOffsetX = 0f; drawOffsetY = -636f;
         } else if (prefix.contains("martial3")) {
             scale = 11.0f; drawOffsetX = 0f; drawOffsetY = -902f;
         } else {
@@ -100,6 +109,9 @@ public class Player {
     // ── Update (lógica, sin dibujo) ───────────────────────────────────────────
 
     public void update(float delta) {
+        // Muerto: solo avanzar el timer de muerte, nada más
+        if (currentState == State.DEAD) { deathTime += delta; return; }
+
         // Gravedad
         velocityY += GRAVITY * delta;
         y         += velocityY * delta;
@@ -203,6 +215,7 @@ public class Player {
 
     public void addCharge(float a) { comboCharge = Math.min(MAX_COMBO_CHARGE, comboCharge + a); }
     public void forceIdle()        { currentState = State.IDLE; attackTime = 0; hurtTime = 0; }
+    public void startDeath()       { currentState = State.DEAD; deathTime = 0; velocityY = 0; }
 
     // ── Hitbox y colisión ─────────────────────────────────────────────────────
 
@@ -248,10 +261,16 @@ public class Player {
     }
 
     private Bitmap currentFrame() {
-        if (currentState == State.HURT)     return hurtAnim.getKeyFrame(hurtTime);
+        if (currentState == State.DEAD) {
+            if (hasDeathAnim) return deathAnim.getKeyFrame(deathTime);
+            if (hasHurtAnim)  return hurtAnim.getKeyFrame(hurtAnim.getDuration()); // último frame hurt
+            return idleAnim.getKeyFrame(0); // sin death ni hurt → congelado en pose idle
+        }
+        if (currentState == State.HURT)
+            return hasHurtAnim ? hurtAnim.getKeyFrame(hurtTime) : idleAnim.getKeyFrame(0);
         if (currentState == State.ATTACKING) {
-            // Si no hay animación de patada, reutilizar punchAnim como fallback
-            SpriteAnimation kick = hasKickAnim ? kickAnim : punchAnim;
+            // kickVisualAnim: kickAnim si existe, o versión rápida de attack1 como visual distinto
+            SpriteAnimation kick = kickVisualAnim;
             if (currentAttackType == AttackType.SPECIAL) {
                 float pd = punchAnim.getDuration();
                 return attackTime < pd
@@ -271,14 +290,17 @@ public class Player {
 
     public boolean    isAttacking()          { return currentState == State.ATTACKING; }
     public boolean    isHurt()               { return currentState == State.HURT; }
+    public boolean    isDead()               { return currentState == State.DEAD; }
     public boolean    isGrounded()           { return y <= groundY + 5; }
     public AttackType getCurrentAttackType() { return currentAttackType; }
 
     // ── Dispose ───────────────────────────────────────────────────────────────
 
     public void recycle() {
-        walkAnim.recycle(); idleAnim.recycle(); punchAnim.recycle();
-        kickAnim.recycle(); hurtAnim.recycle(); jumpAnim.recycle();
+        walkAnim.recycle();  idleAnim.recycle();   punchAnim.recycle();
+        kickAnim.recycle();  hurtAnim.recycle();   jumpAnim.recycle();
+        deathAnim.recycle();
+        if (kickVisualAnim != null && kickVisualAnim != kickAnim) kickVisualAnim.recycle();
     }
 }
 

@@ -2,6 +2,7 @@ package riberadeltajo.es.chaosarena2;
 
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.view.MotionEvent;
@@ -22,17 +23,26 @@ public class VirtualJoystick {
     private final Bitmap bgBitmap;
     private final Bitmap knobBitmap;
     private final Paint  paint = new Paint(Paint.FILTER_BITMAP_FLAG);
+    private Matrix inverseMatrix;  // pantalla → mundo
 
     public VirtualJoystick(float centerX, float centerY, float radius,
                            Bitmap bgBitmap, Bitmap knobBitmap) {
         this.centerX    = centerX;
         this.centerY    = centerY;
         this.radius     = radius;
-        this.knobRadius = radius * 0.4f;
+        this.knobRadius = radius * 0.70f;
         this.bgBitmap   = bgBitmap;
         this.knobBitmap = knobBitmap;
         this.knobX      = centerX;
         this.knobY      = centerY;
+    }
+
+    public void setInverseMatrix(Matrix m) { this.inverseMatrix = m; }
+
+    private float[] toWorld(float sx, float sy) {
+        float[] p = { sx, sy };
+        if (inverseMatrix != null) inverseMatrix.mapPoints(p);
+        return p;
     }
 
     // ── Touch ─────────────────────────────────────────────────────────────────
@@ -45,11 +55,10 @@ public class VirtualJoystick {
         switch (action) {
             case MotionEvent.ACTION_DOWN:
             case MotionEvent.ACTION_POINTER_DOWN:
-                float tx = e.getX(ptrIdx);
-                float ty = e.getY(ptrIdx);
-                if (isInsideBase(tx, ty) && trackingPointerId == -1) {
+                float[] down = toWorld(e.getX(ptrIdx), e.getY(ptrIdx));
+                if (isInsideBase(down[0], down[1]) && trackingPointerId == -1) {
                     trackingPointerId = ptId;
-                    updateKnob(tx, ty);
+                    updateKnob(down[0], down[1]);
                     return true;
                 }
                 break;
@@ -57,7 +66,10 @@ public class VirtualJoystick {
             case MotionEvent.ACTION_MOVE:
                 if (trackingPointerId != -1) {
                     int idx = e.findPointerIndex(trackingPointerId);
-                    if (idx >= 0) updateKnob(e.getX(idx), e.getY(idx));
+                    if (idx >= 0) {
+                        float[] mv = toWorld(e.getX(idx), e.getY(idx));
+                        updateKnob(mv[0], mv[1]);
+                    }
                     return true;
                 }
                 break;

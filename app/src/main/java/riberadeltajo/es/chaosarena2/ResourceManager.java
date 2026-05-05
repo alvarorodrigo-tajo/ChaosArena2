@@ -72,14 +72,14 @@ public class ResourceManager {
     /** Carpeta de assets para cada personaje. */
     public String getFolderForChar(String name) {
         if (name.contains("Iron Claw")) return "sprites/martial3";
-        if (name.contains("Ronin"))     return "sprites/samurai";
+        if (name.contains("Sub Zero"))  return "sprites/subzero";
         return "sprites/martial1";
     }
 
     /** Prefijo de frames para cada personaje. */
     public String getPrefixForChar(String name) {
         if (name.contains("Iron Claw")) return "martial3";
-        if (name.contains("Ronin"))     return "samurai";
+        if (name.contains("Sub Zero"))  return "subzero";
         return "martial1";
     }
 

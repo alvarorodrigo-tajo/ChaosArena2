@@ -49,7 +49,11 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
     private RunManager runManager;
 
     // ── Resultado ─────────────────────────────────────────────────────────────
-    private boolean lastBattleWon = false;
+    private boolean lastBattleWon    = false;
+    private boolean pendingResult    = false;
+    private boolean pendingResultWon = false;
+    private float   deathDelay       = 0f;
+    private static final float DEATH_ANIM_WAIT = 1.5f;
 
     // ── Escenario ─────────────────────────────────────────────────────────────
     private StageDef currentStage;
@@ -118,7 +122,6 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
         paintOverlay.setColor(0xCC000000);
         paintBlack.setColor(0xFF000000);
 
-        // Añade esto:
         joystick = new VirtualJoystick(280f, WORLD_H - 280f, 180f,
                 res.joystickBg, res.joystickKnob);
 
@@ -188,6 +191,7 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
     private void updateScaleMatrix(int screenW, int screenH) {
         worldMatrix.setScale(screenW / WORLD_W, screenH / WORLD_H);
         worldMatrix.invert(inverseMatrix);
+        if (joystick != null) joystick.setInverseMatrix(inverseMatrix);
     }
 
     private void stopBucle() {
@@ -227,10 +231,22 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
     // ── Update ────────────────────────────────────────────────────────────────
 
     private void updateFighting(float delta) {
+        // Esperando que termine la animación de muerte antes de mostrar resultado
+        if (pendingResult) {
+            deathDelay += delta;
+            player1.update(delta);
+            player2.update(delta);
+            if (deathDelay >= DEATH_ANIM_WAIT) {
+                pendingResult = false;
+                showResult(pendingResultWon);
+            }
+            return;
+        }
+
         if (activeSlot == -2) {
             timeLeft          -= delta;
             totalTimeSurvived += delta;
-            if (timeLeft <= 0) { timeLeft = 0; showResult(false); return; }
+            if (timeLeft <= 0) { timeLeft = 0; triggerResult(false); return; }
         }
 
         float ix = joystick.getKnobPercentX();
@@ -246,8 +262,22 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
         player1.x = Math.max(MAP_MIN_X, Math.min(player1.x, maxX));
         player2.x = Math.max(MAP_MIN_X, Math.min(player2.x, maxX));
 
-        if      (player1.currentHealth <= 0) showResult(false);
-        else if (player2.currentHealth <= 0) showResult(true);
+        if      (player1.currentHealth <= 0) triggerResult(false);
+        else if (player2.currentHealth <= 0) triggerResult(true);
+    }
+
+    private void triggerResult(boolean won) {
+        if (pendingResult) return;          // ya en espera, ignorar duplicados
+        pendingResult    = true;
+        pendingResultWon = won;
+        deathDelay       = 0f;
+        if (won) {
+            player1.forceIdle();
+            player2.startDeath();
+        } else {
+            player1.startDeath();
+            player2.forceIdle();
+        }
     }
 
     // ── Draw ──────────────────────────────────────────────────────────────────
@@ -271,7 +301,7 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
         res.fontBig.setColor(0xFFFFCC00);
         drawCenteredText(canvas, "ELIGE TU LUCHADOR", 150f, res.fontBig);
 
-        String[] chars = { "Shadow Fist", "Iron Claw", "Ronin" };
+        String[] chars = { "Shadow Fist", "Iron Claw", "Sub Zero" };
         for (int i = 0; i < chars.length; i++) {
             int bg = (i == selectedCharIdx) ? 0xFF224400 : 0xBB111111;
             drawButton(canvas, btnChars[i], chars[i], bg, res.fontMedium);
@@ -296,9 +326,10 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
 
     private void drawFighting(Canvas canvas) {
         float pShiftX = (player1.x / WORLD_W) * 300f;
+        // Siempre dibujar desde y=0 para que no haya franja negra en la parte superior
         canvas.drawBitmap(currentStage.bgBitmap, null,
-                new RectF(-pShiftX, currentStage.floorVisualOffset,
-                        WORLD_W + 300f - pShiftX, WORLD_H + currentStage.floorVisualOffset),
+                new RectF(-pShiftX, 0,
+                        WORLD_W + 300f - pShiftX, WORLD_H),
                 paintBitmap);
 
         player1.draw(canvas);
@@ -409,15 +440,17 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
     }
 
     private void drawHUD(Canvas canvas) {
-        // Botón pausa — se recalcula en draw porque no cambia
-        btnPause.set(WORLD_W / 2f - 150f, 10f, WORLD_W / 2f + 150f, 100f);
+        // Botón pausa — compacto en el centro superior
+        btnPause.set(WORLD_W / 2f - 80f, 12f, WORLD_W / 2f + 80f, 68f);
         drawButton(canvas, btnPause, "II", 0xBB222222, res.fontMedium);
 
         if (activeSlot == -2) {
+            // Tiempo restante justo debajo del botón pausa
             res.fontBig.setColor(0xFFFFFFFF);
-            drawCenteredText(canvas, String.format("%02d", (int) timeLeft), 90f, res.fontBig);
-            res.fontSmall.setColor(0xFFFFFFFF);
-            canvas.drawText("DERROTADOS: " + enemiesDefeated, 80f, 160f, res.fontSmall);
+            drawCenteredText(canvas, String.format("%02d", (int) timeLeft), 145f, res.fontBig);
+            // Enemigos derrotados debajo del tiempo
+            res.fontSmall.setColor(0xFFFFAAFF);
+            drawCenteredText(canvas, "DERROTADOS: " + enemiesDefeated, 192f, res.fontSmall);
         }
     }
 
@@ -525,7 +558,7 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
         currentLevel = 1;
         currentStage = res.stages[selectedStageIdx];
 
-        String[] chars  = { "Shadow Fist", "Iron Claw", "Ronin" };
+        String[] chars  = { "Shadow Fist", "Iron Claw", "Sub Zero" };
         String   p1Name = chars[selectedCharIdx];
         String   p2Name = resolveEnemyName();
 
@@ -549,9 +582,25 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
     }
 
     private String resolveEnemyName() {
-        String[] chars = { "Shadow Fist", "Iron Claw", "Ronin" };
-        if (activeSlot >= 0) return ActividadJuego.LEVEL_ENEMY_NAMES[0];
+        String[] chars = { "Shadow Fist", "Iron Claw", "Sub Zero" };
+        if (activeSlot >= 0) {
+            // Historia: enemigo según nivel actual
+            int idx = Math.min(currentLevel - 1, ActividadJuego.LEVEL_ENEMY_NAMES.length - 1);
+            return ActividadJuego.LEVEL_ENEMY_NAMES[idx];
+        }
+        // Arcade y duelo: enemigo aleatorio
         return chars[(int)(Math.random() * chars.length)];
+    }
+
+    /** Actualiza el sprite del enemigo (player2) sin recrear el objeto. */
+    private void spawnNewEnemy() {
+        String p2Name = resolveEnemyName();
+        player2.name     = p2Name;
+        player2.charType = p2Name;
+        player2.loadAnimations(res.assets,
+                res.getFolderForChar(p2Name),
+                res.getPrefixForChar(p2Name),
+                WORLD_H);
     }
 
     private void applyModeConfig() {
@@ -573,11 +622,8 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
     }
 
     private void showResult(boolean won) {
-        player1.forceIdle();
-        player2.forceIdle();
         lastBattleWon = won;
         currentScreen = Screen.RESULT;
-
         if (activeSlot == -2 && won)  { enemiesDefeated++; runManager.onFightWon(); }
         if (activeSlot == -2 && !won) saveArcadeScore();
     }
@@ -604,18 +650,25 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
     }
 
     private void resetCombat() {
+        pendingResult = false;
         if (lastBattleWon && activeSlot >= 0) {
             currentLevel++;
             if (currentLevel > ActividadJuego.MAX_LEVELS) { currentScreen = Screen.MAIN_MENU; return; }
             applyModeConfig();
         }
 
+        // Historia: enemigo cambia según nivel. Arcade: enemigo aleatorio nuevo cada ronda.
+        if (activeSlot != -1) spawnNewEnemy();
+
+        player1.forceIdle();
+        player2.forceIdle();
         player1.currentHealth = player1.maxHealth;
         player1.comboCharge   = 0;
         player2.currentHealth = player2.maxHealth;
         player2.comboCharge   = 0;
         player1.x = 400f;        player1.y = player1.groundY;
         player2.x = WORLD_W - 400f; player2.y = player2.groundY;
+        player1.velocityY = 0;   player2.velocityY = 0;
         timeLeft = INITIAL_TIME;
 
         if (activeSlot == -2 && runManager != null) runManager.applyEnemyScaling(enemyAI, player2);

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c ' *)",
+      "Bash(dir \"C:\\\\Users\\\\alvar\" /b)",
+      "Bash(dir \"C:\\\\Users\\\\alvar\\\\AndroidStudioProjects\\\\ChaosArena2\\\\app\\\\src\\\\main\\\\assets\\\\sprites\\\\subzero\")"
+    ]
+  }
+}
