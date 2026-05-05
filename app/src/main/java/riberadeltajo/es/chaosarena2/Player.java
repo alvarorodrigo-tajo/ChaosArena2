@@ -81,6 +81,7 @@ public class Player {
         hurtAnim  = SpriteAnimation.load(assets, folder, charPrefix + "_takehit",0.12f, SpriteAnimation.PlayMode.NORMAL);
         jumpAnim    = SpriteAnimation.load(assets, folder, charPrefix + "_jump", 0.10f, SpriteAnimation.PlayMode.LOOP);
         hasJumpAnim = jumpAnim.getFrameWidth() > 1;  // fallback bitmap es 1x1
+        hasKickAnim = kickAnim.getFrameWidth() > 1;  // fallback bitmap es 1x1
 
         calibrateScale(charPrefix);
     }
@@ -125,11 +126,13 @@ public class Player {
 
         attackTime += delta;
 
+        // Si no hay animación de patada, usar punchAnim como referencia de duración
+        float kickDuration = hasKickAnim ? kickAnim.getDuration() : punchAnim.getDuration();
         float totalDuration = punchAnim.getDuration();
         if (currentAttackType == AttackType.SPECIAL)
-            totalDuration = punchAnim.getDuration() + kickAnim.getDuration();
+            totalDuration = punchAnim.getDuration() + kickDuration;
         else if (currentAttackType == AttackType.KICK)
-            totalDuration = kickAnim.getDuration();
+            totalDuration = kickDuration;
 
         if (attackTime >= totalDuration) {
             currentState          = State.IDLE;
@@ -247,14 +250,16 @@ public class Player {
     private Bitmap currentFrame() {
         if (currentState == State.HURT)     return hurtAnim.getKeyFrame(hurtTime);
         if (currentState == State.ATTACKING) {
+            // Si no hay animación de patada, reutilizar punchAnim como fallback
+            SpriteAnimation kick = hasKickAnim ? kickAnim : punchAnim;
             if (currentAttackType == AttackType.SPECIAL) {
                 float pd = punchAnim.getDuration();
                 return attackTime < pd
                         ? punchAnim.getKeyFrame(attackTime)
-                        : kickAnim.getKeyFrame(attackTime - pd);
+                        : kick.getKeyFrame(attackTime - pd);
             }
             return (currentAttackType == AttackType.KICK)
-                    ? kickAnim.getKeyFrame(attackTime)
+                    ? kick.getKeyFrame(attackTime)
                     : punchAnim.getKeyFrame(attackTime);
         }
         if (!isGrounded())              return hasJumpAnim ? jumpAnim.getKeyFrame(jumpTime) : idleAnim.getKeyFrame(stateTime);
