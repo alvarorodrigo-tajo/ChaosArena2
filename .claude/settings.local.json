@@ -16,7 +16,8 @@
       "Bash(rm -f documentacion_chaosarena2.pdf)",
       "Bash(rm -f __TRACKED_VAR__/backgrounds/zigala.png)",
       "Bash(rm -f __TRACKED_VAR__/joystick/AIR_joystick_stick320.png)",
-      "Bash(rm -f __TRACKED_VAR__/ui/button_bg.png)"
+      "Bash(rm -f __TRACKED_VAR__/ui/button_bg.png)",
+      "PowerShell(Get-Item *)"
     ]
   }
 }
