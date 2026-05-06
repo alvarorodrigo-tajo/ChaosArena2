@@ -6,6 +6,9 @@ import android.view.Window;
 import android.view.WindowManager;
 import androidx.appcompat.app.AppCompatActivity;
 
+import riberadeltajo.es.chaosarena2.engine.Juego;
+import riberadeltajo.es.chaosarena2.engine.ResourceManager;
+
 public class ActividadJuego extends AppCompatActivity {
 
     // ── Constantes de juego (antes en Main.java) ──────────────────────────────

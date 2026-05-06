@@ -9,7 +9,14 @@
       "Bash(gradlew.bat compileDebugJavaWithJavac)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\alvar\\\\AndroidStudioProjects\\\\ChaosArena2\\\\app\\\\src\\\\main\\\\java\\\\riberadeltajo\\\\es\\\\chaosarena2\" -Filter \"*.java\")",
       "Bash(Select-Object -ExpandProperty Name)",
-      "Bash(pip install *)"
+      "Bash(pip install *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\alvar\\\\AndroidStudioProjects\\\\ChaosArena2\" -Force)",
+      "Bash(Select-Object Name, FullName, PSIsContainer)",
+      "Bash(rm -f gen_doc.py)",
+      "Bash(rm -f documentacion_chaosarena2.pdf)",
+      "Bash(rm -f __TRACKED_VAR__/backgrounds/zigala.png)",
+      "Bash(rm -f __TRACKED_VAR__/joystick/AIR_joystick_stick320.png)",
+      "Bash(rm -f __TRACKED_VAR__/ui/button_bg.png)"
     ]
   }
 }
