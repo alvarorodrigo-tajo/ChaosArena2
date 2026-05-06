@@ -32,6 +32,10 @@ public class Player {
     public float drawOffsetX = 0f;
     public float drawOffsetY = 0f;
     private float worldHeight;
+    private float hbWMult    = 0.35f;
+    private float hbHMult    = 0.80f;
+    private float hbOffsetX  = 0f;   // canvas px; positivo=derecha cuando facingRight, invertido si facing left
+    private float hbOffsetY  = 0f;   // canvas px hacia abajo desde el tope del frame
 
     // ── Stats ─────────────────────────────────────────────────────────────────
     public String name, charType, charPrefix;
@@ -52,6 +56,22 @@ public class Player {
     private final Paint paint = new Paint(Paint.FILTER_BITMAP_FLAG);
     private final Paint hurtPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
     private final Matrix matrix   = new Matrix();
+
+    // ── Debug hitboxes ────────────────────────────────────────────────────────
+    public static boolean DEBUG_HITBOXES = true;
+    private static final Paint dbgBodyPaint;
+    private static final Paint dbgAttackPaint;
+    static {
+        dbgBodyPaint = new Paint();
+        dbgBodyPaint.setStyle(Paint.Style.STROKE);
+        dbgBodyPaint.setStrokeWidth(4f);
+        dbgBodyPaint.setColor(0xFF00FF00);
+
+        dbgAttackPaint = new Paint();
+        dbgAttackPaint.setStyle(Paint.Style.STROKE);
+        dbgAttackPaint.setStrokeWidth(4f);
+        dbgAttackPaint.setColor(0xFFFF3333);
+    }
 
     public Player(String name, AssetManager assets, String folder, String charPrefix,
                   float x, float y, boolean facingRight, float worldHeight) {
@@ -100,8 +120,14 @@ public class Player {
         // drawOffsetY = -(idle_frame_h_px * scale): alinea los pies del sprite con groundY
         if (prefix.contains("subzero")) {
             scale = 4.0f; drawOffsetX = 0f; drawOffsetY = -636f;  // ~159px
+            // sprite 199x191px, contenido real X=57..113 Y=41..159
+            hbWMult   = 0.105f;   // 199*4*0.105 ≈ 84px  (igual que goro)
+            hbHMult   = 0.490f;   // 191*4*0.490 ≈ 374px (igual que goro)
+            hbOffsetX = -58f;     // centro del personaje 14.5px izq del centro del frame → 14.5*4=58 canvas px
+            hbOffsetY = 164f;     // 41px vacíos en la parte superior del frame → 41*4=164 canvas px
         } else if (prefix.contains("goro")) {
             scale = 4.0f; drawOffsetX = 0f; drawOffsetY = -472f;  // ~118px
+            hasHurtAnim = false;  // takehit tiene animación de caída no deseada
         } else {
             scale = 4.0f; drawOffsetX = 0f; drawOffsetY = -396f;  // ~99px (liu_kang)
         }
@@ -229,9 +255,12 @@ public class Player {
     // ── Hitbox y colisión ─────────────────────────────────────────────────────
 
     public RectF getHitbox() {
-        float hbW = idleAnim.getFrameWidth()  * scale * 0.35f;
-        float hbH = idleAnim.getFrameHeight() * scale * 0.80f;
-        return new RectF(x - hbW / 2f, y + drawOffsetY, x + hbW / 2f, y + drawOffsetY + hbH);
+        float hbW = idleAnim.getFrameWidth()  * scale * hbWMult;
+        float hbH = idleAnim.getFrameHeight() * scale * hbHMult;
+        float ox  = facingRight ? hbOffsetX : -hbOffsetX;
+        float cx  = x + ox;
+        float top = (worldHeight - y) + drawOffsetY + hbOffsetY;
+        return new RectF(cx - hbW / 2f, top, cx + hbW / 2f, top + hbH);
     }
 
     public boolean canHit(Player other) {
@@ -267,6 +296,19 @@ public class Player {
 
         boolean blinking = currentState == State.HURT && (int)(hurtTime * 15) % 2 == 0;
         canvas.drawBitmap(frame, matrix, blinking ? hurtPaint : paint);
+        if (DEBUG_HITBOXES) drawDebugHitbox(canvas);
+    }
+
+    private void drawDebugHitbox(Canvas canvas) {
+        RectF hb = getHitbox();
+        canvas.drawRect(hb.left, hb.top, hb.right, hb.bottom, dbgBodyPaint);
+
+        if (currentState == State.ATTACKING) {
+            float reach = (currentAttackType == AttackType.KICK)    ? 400
+                        : (currentAttackType == AttackType.SPECIAL)  ? 700 : 300;
+            float ax = facingRight ? hb.right : hb.left - reach;
+            canvas.drawRect(ax, hb.top, ax + reach, hb.bottom, dbgAttackPaint);
+        }
     }
 
     private Bitmap currentFrame() {

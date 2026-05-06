@@ -6,7 +6,10 @@
       "Bash(dir \"C:\\\\Users\\\\alvar\\\\AndroidStudioProjects\\\\ChaosArena2\\\\app\\\\src\\\\main\\\\assets\\\\sprites\\\\subzero\")",
       "Bash(python -c \"from PIL import Image; print\\('Pillow OK'\\)\")",
       "Bash(python *)",
-      "Bash(gradlew.bat compileDebugJavaWithJavac)"
+      "Bash(gradlew.bat compileDebugJavaWithJavac)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\alvar\\\\AndroidStudioProjects\\\\ChaosArena2\\\\app\\\\src\\\\main\\\\java\\\\riberadeltajo\\\\es\\\\chaosarena2\" -Filter \"*.java\")",
+      "Bash(Select-Object -ExpandProperty Name)",
+      "Bash(pip install *)"
     ]
   }
 }

@@ -53,7 +53,7 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
     private boolean pendingResult    = false;
     private boolean pendingResultWon = false;
     private float   deathDelay       = 0f;
-    private static final float DEATH_ANIM_WAIT = 1.5f;
+    private static final float DEATH_ANIM_WAIT = 2.5f;
 
     // ── Escenario ─────────────────────────────────────────────────────────────
     private StageDef currentStage;
