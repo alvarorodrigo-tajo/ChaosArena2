@@ -20,7 +20,7 @@ public class ActividadJuego extends AppCompatActivity {
     public static final float[] LEVEL_ENEMY_DAMAGE = {   5f,   5f,   5f };
     public static final float[] LEVEL_ATTACK_RATE  = { 1.6f, 1.0f, 0.6f };
 
-    public static final String[] LEVEL_ENEMY_NAMES = { "Dark Fighter", "Ronin Boss", "Shadow Master" };
+    public static final String[] LEVEL_ENEMY_NAMES = { "Goro", "Sub Zero", "Liu Kang" };
     public static final String[] CHAR_NAMES         = { "Liu Kang", "Goro", "Ronin" };
 
     public static final String[] LEVEL_LORE = {

@@ -17,7 +17,10 @@
       "Bash(rm -f __TRACKED_VAR__/backgrounds/zigala.png)",
       "Bash(rm -f __TRACKED_VAR__/joystick/AIR_joystick_stick320.png)",
       "Bash(rm -f __TRACKED_VAR__/ui/button_bg.png)",
-      "PowerShell(Get-Item *)"
+      "PowerShell(Get-Item *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\alvar\\\\AndroidStudioProjects\\\\ChaosArena2\" -Recurse -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "PowerShell(head *)"
     ]
   }
 }

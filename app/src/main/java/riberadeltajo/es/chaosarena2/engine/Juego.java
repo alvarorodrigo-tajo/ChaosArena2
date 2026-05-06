@@ -68,9 +68,10 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
     private StageDef currentStage;
 
     // ── Selección ─────────────────────────────────────────────────────────────
-    private int selectedCharIdx  = 0;
-    private int selectedStageIdx = 0;
-    private int pendingSlot      = 0;
+    private int selectedCharIdx      = 0;
+    private int selectedEnemyCharIdx = 1;
+    private int selectedStageIdx     = 0;
+    private int pendingSlot          = 0;
 
     // ── Buff / Event ──────────────────────────────────────────────────────────
     private java.util.List<Buff> buffChoices;
@@ -84,9 +85,13 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
     private final RectF btnDuel   = new RectF();
 
     // Selección de personaje
-    private final RectF[] btnChars      = { new RectF(), new RectF(), new RectF() };
+    private final RectF[] btnChars       = { new RectF(), new RectF(), new RectF() };
+    private final RectF[] btnEnemyChars  = { new RectF(), new RectF(), new RectF() };
     private final RectF   btnStageChange = new RectF();
     private final RectF   btnLuchar      = new RectF();
+
+    // Botón atrás (esquina superior izquierda)
+    private final RectF btnBack = new RectF();
 
     // Lore
     private final RectF btnStartFight = new RectF();
@@ -177,6 +182,9 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
 
         // Evento
         btnEventOk.set(660f, 700f, 1260f, 840f);
+
+        // Botón atrás (esquina superior izquierda, presente en varias pantallas)
+        btnBack.set(30f, 20f, 220f, 110f);
     }
 
     // ── SurfaceHolder.Callback ────────────────────────────────────────────────
@@ -317,6 +325,7 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
         res.fontBig.setColor(0xFFFF8800);
         drawCenteredText(canvas, "CHAOS ARENA", WORLD_H * 0.18f, res.fontBig);
 
+        res.fontMedium.setColor(0xFFFFFFFF);
         drawButton(canvas, btnStory,  "HISTORIA",    0xBB0A3A0A, res.fontMedium);
         drawButton(canvas, btnArcade, "ARCADE",      0xBB3A1A00, res.fontMedium);
         drawButton(canvas, btnDuel,   "DUELO LOCAL", 0xBB001A3A, res.fontMedium);
@@ -327,19 +336,63 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
                 null, new RectF(0, 0, WORLD_W, WORLD_H), paintBitmap);
         canvas.drawRect(0, 0, WORLD_W, WORLD_H, paintOverlay);
 
-        res.fontBig.setColor(0xFFFFCC00);
-        drawCenteredText(canvas, "ELIGE TU LUCHADOR", 150f, res.fontBig);
-
         String[] chars = { "Liu Kang", "Goro", "Sub Zero" };
-        for (int i = 0; i < chars.length; i++) {
-            int bg = (i == selectedCharIdx) ? 0xFF224400 : 0xBB111111;
-            drawButton(canvas, btnChars[i], chars[i], bg, res.fontMedium);
+        float cbw = 500f, cgap = 80f;
+        float totalW = 3 * cbw + 2 * cgap;
+        float startX = (WORLD_W - totalW) / 2f;
+
+        if (pendingSlot == -1) {
+            // Modo duelo: el jugador elige su personaje Y el del rival
+            res.fontBig.setColor(0xFFFFCC00);
+            drawCenteredText(canvas, "DUELO LOCAL", 95f, res.fontBig);
+
+            res.fontMedium.setColor(0xFF88FF88);
+            drawCenteredText(canvas, "TU LUCHADOR", 210f, res.fontMedium);
+            for (int i = 0; i < chars.length; i++) {
+                btnChars[i].set(startX + i * (cbw + cgap), 235f,
+                        startX + i * (cbw + cgap) + cbw, 345f);
+                int bg = (i == selectedCharIdx) ? 0xFF224400 : 0xBB111111;
+                drawButton(canvas, btnChars[i], chars[i], bg, res.fontMedium);
+            }
+
+            res.fontMedium.setColor(0xFFFF8888);
+            drawCenteredText(canvas, "RIVAL", 415f, res.fontMedium);
+            for (int i = 0; i < chars.length; i++) {
+                btnEnemyChars[i].set(startX + i * (cbw + cgap), 440f,
+                        startX + i * (cbw + cgap) + cbw, 550f);
+                int bg = (i == selectedEnemyCharIdx) ? 0xFF440022 : 0xBB111111;
+                drawButton(canvas, btnEnemyChars[i], chars[i], bg, res.fontMedium);
+            }
+
+            btnStageChange.set(760f, 620f, 1160f, 730f);
+            btnLuchar.set((WORLD_W - 700f) / 2f, WORLD_H - 195f,
+                    (WORLD_W + 700f) / 2f, WORLD_H - 55f);
+            res.fontSmall.setColor(0xFFFFFFFF);
+            drawCenteredText(canvas, "ESCENARIO: " + res.stages[selectedStageIdx].name, 600f, res.fontSmall);
+            drawButton(canvas, btnStageChange, "< CAMBIAR >", 0xBB222222, res.fontMedium);
+            drawButton(canvas, btnLuchar,      "¡LUCHAR!",   0xBBAA1100, res.fontBig);
+        } else {
+            // Modo historia / arcade: selección normal (solo jugador)
+            res.fontBig.setColor(0xFFFFCC00);
+            drawCenteredText(canvas, "ELIGE TU LUCHADOR", 150f, res.fontBig);
+
+            for (int i = 0; i < chars.length; i++) {
+                btnChars[i].set(startX + i * (cbw + cgap), 300f,
+                        startX + i * (cbw + cgap) + cbw, 430f);
+                int bg = (i == selectedCharIdx) ? 0xFF224400 : 0xBB111111;
+                drawButton(canvas, btnChars[i], chars[i], bg, res.fontMedium);
+            }
+
+            btnStageChange.set(760f, 590f, 1160f, 730f);
+            btnLuchar.set((WORLD_W - 700f) / 2f, WORLD_H - 220f,
+                    (WORLD_W + 700f) / 2f, WORLD_H - 80f);
+            res.fontSmall.setColor(0xFFFFFFFF);
+            drawCenteredText(canvas, "ESCENARIO: " + res.stages[selectedStageIdx].name, 560f, res.fontSmall);
+            drawButton(canvas, btnStageChange, "< CAMBIAR >", 0xBB222222, res.fontMedium);
+            drawButton(canvas, btnLuchar,      "¡LUCHAR!",   0xBBAA1100, res.fontBig);
         }
 
-        res.fontSmall.setColor(0xFFFFFFFF);
-        drawCenteredText(canvas, "ESCENARIO: " + res.stages[selectedStageIdx].name, 560f, res.fontSmall);
-        drawButton(canvas, btnStageChange, "< CAMBIAR >", 0xBB222222, res.fontMedium);
-        drawButton(canvas, btnLuchar,      "¡LUCHAR!",   0xBBAA1100, res.fontBig);
+        drawBackButton(canvas);
     }
 
     private void drawLore(Canvas canvas) {
@@ -351,6 +404,7 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
         drawWrappedText(canvas, lore, 200f, 300f, WORLD_W - 400f, res.fontSmall);
 
         drawButton(canvas, btnStartFight, "EMPEZAR COMBATE", 0xBBAA1100, res.fontMedium);
+        drawBackButton(canvas);
     }
 
     private void drawFighting(Canvas canvas) {
@@ -393,6 +447,7 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
         canvas.drawRect(0, 0, WORLD_W, WORLD_H, paintOverlay);
         res.fontBig.setColor(0xFFFFCC00);
         drawCenteredText(canvas, "PAUSA", WORLD_H * 0.30f, res.fontBig);
+        res.fontMedium.setColor(0xFFFFFFFF);
         drawButton(canvas, btnResume,   "CONTINUAR",     0xBB004400, res.fontMedium);
         drawButton(canvas, btnExitMenu, "SALIR AL MENU", 0xBB440000, res.fontMedium);
     }
@@ -407,6 +462,7 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
         else if (lastBattleWon && activeSlot >= 0)               actionLabel = currentLevel > ActividadJuego.MAX_LEVELS ? "COMPLETADO" : "SIGUIENTE";
         else                                                     actionLabel = lastBattleWon ? "OTRO DUELO" : "REINTENTAR";
 
+        res.fontMedium.setColor(0xFFFFFFFF);
         drawButton(canvas, btnResultAction, actionLabel,       0xBB004400, res.fontMedium);
         drawButton(canvas, btnResultMenu,   "MENU PRINCIPAL",  0xBB440000, res.fontMedium);
     }
@@ -542,14 +598,20 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
                 break;
 
             case CHAR_SELECT:
+                if (hit(btnBack, wx, wy)) { currentScreen = Screen.MAIN_MENU; break; }
                 for (int i = 0; i < btnChars.length; i++)
                     if (hit(btnChars[i], wx, wy)) selectedCharIdx = i;
+                if (pendingSlot == -1) {
+                    for (int i = 0; i < btnEnemyChars.length; i++)
+                        if (hit(btnEnemyChars[i], wx, wy)) selectedEnemyCharIdx = i;
+                }
                 if (hit(btnStageChange, wx, wy))
                     selectedStageIdx = (selectedStageIdx + 1) % res.stages.length;
                 if (hit(btnLuchar, wx, wy)) startFight();
                 break;
 
             case LORE:
+                if (hit(btnBack, wx, wy)) { currentScreen = Screen.CHAR_SELECT; break; }
                 if (hit(btnStartFight, wx, wy)) currentScreen = Screen.FIGHTING;
                 break;
 
@@ -628,7 +690,11 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
             int idx = Math.min(currentLevel - 1, ActividadJuego.LEVEL_ENEMY_NAMES.length - 1);
             return ActividadJuego.LEVEL_ENEMY_NAMES[idx];
         }
-        // Arcade/duelo: enemigo aleatorio distinto al jugador
+        if (activeSlot == -1) {
+            // Duelo: usar el personaje elegido por el usuario para el rival
+            return chars[selectedEnemyCharIdx];
+        }
+        // Arcade: enemigo aleatorio distinto al jugador
         String p1Name = player1 != null ? player1.name : chars[selectedCharIdx];
         java.util.List<String> pool = new java.util.ArrayList<>();
         for (String c : chars) if (!c.equals(p1Name)) pool.add(c);
@@ -762,6 +828,10 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
     public void releaseMusic() { if (music != null) { music.release(); music = null; } }
 
     // ── Helpers de dibujo ─────────────────────────────────────────────────────
+
+    private void drawBackButton(Canvas canvas) {
+        drawButton(canvas, btnBack, "←", 0xBB333333, res.fontBig);
+    }
 
     private void drawButton(Canvas canvas, RectF r, String label, int bgColor, Paint font) {
         Paint bg = new Paint(); bg.setColor(bgColor);
