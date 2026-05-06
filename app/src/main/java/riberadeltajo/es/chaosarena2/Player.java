@@ -46,6 +46,7 @@ public class Player {
     public boolean facingRight;
     public Player  opponent;
     public boolean hasHitInCurrentAttack = false;
+    public boolean justHitThisFrame     = false;
 
     // ── Paint para el blit ────────────────────────────────────────────────────
     private final Paint paint = new Paint(Paint.FILTER_BITMAP_FLAG);
@@ -96,14 +97,20 @@ public class Player {
     }
 
     private void calibrateScale(String prefix) {
-        // drawOffsetY = -(feet_y_in_frame * scale): alinea los pies del sprite con el groundY del canvas
+        // drawOffsetY = -(idle_frame_h_px * scale): alinea los pies del sprite con groundY
         if (prefix.contains("subzero")) {
-            scale = 4.0f; drawOffsetX = 0f; drawOffsetY = -636f;
-        } else if (prefix.contains("martial3")) {
-            scale = 11.0f; drawOffsetX = 0f; drawOffsetY = -902f;
+            scale = 4.0f; drawOffsetX = 0f; drawOffsetY = -636f;  // ~159px
+        } else if (prefix.contains("goro")) {
+            scale = 4.0f; drawOffsetX = 0f; drawOffsetY = -472f;  // ~118px
         } else {
-            scale = 10.0f; drawOffsetX = 0f; drawOffsetY = -1220f;
+            scale = 4.0f; drawOffsetX = 0f; drawOffsetY = -396f;  // ~99px (liu_kang)
         }
+    }
+
+    /** Y en coordenadas canvas-mundo donde está el centro del torso (para efectos visuales). */
+    public float getBodyCanvasY() {
+        float top = (worldHeight - y) + drawOffsetY;
+        return top + idleAnim.getFrameHeight() * scale * 0.35f;
     }
 
     // ── Update (lógica, sin dibujo) ───────────────────────────────────────────
@@ -134,6 +141,7 @@ public class Player {
     }
 
     public void updateAttack(float delta) {
+        justHitThisFrame = false;
         if (currentState != State.ATTACKING) return;
 
         attackTime += delta;
@@ -168,6 +176,7 @@ public class Player {
                 if (lifestealPercent > 0)
                     currentHealth = Math.min(maxHealth, currentHealth + dmg * lifestealPercent);
                 hasHitInCurrentAttack = true;
+                justHitThisFrame      = true;
             }
         }
     }

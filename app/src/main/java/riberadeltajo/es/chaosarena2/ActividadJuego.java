@@ -18,7 +18,7 @@ public class ActividadJuego extends AppCompatActivity {
     public static final float[] LEVEL_ATTACK_RATE  = { 1.6f, 1.0f, 0.6f };
 
     public static final String[] LEVEL_ENEMY_NAMES = { "Dark Fighter", "Ronin Boss", "Shadow Master" };
-    public static final String[] CHAR_NAMES         = { "Shadow Fist", "Iron Claw", "Ronin" };
+    public static final String[] CHAR_NAMES         = { "Liu Kang", "Goro", "Ronin" };
 
     public static final String[] LEVEL_LORE = {
             "Nivel 1: El Torneo Comienza\n\nHas llegado a las puertas del Chaos Arena. " +

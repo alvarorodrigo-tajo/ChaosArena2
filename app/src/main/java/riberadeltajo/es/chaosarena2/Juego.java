@@ -108,6 +108,13 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
     private final Paint paintBlack   = new Paint();
     private final Paint paintBitmap  = new Paint(Paint.FILTER_BITMAP_FLAG);
 
+    // ── Efecto de impacto ─────────────────────────────────────────────────────
+    private float hitFlashTimer = 0f;
+    private float hitFlashX     = 0f;
+    private float hitFlashY     = 0f;
+    private static final float HIT_FLASH_DURATION = 0.10f;
+    private final Paint paintHitFlash = new Paint(Paint.ANTI_ALIAS_FLAG);
+
     // ── Constructor ───────────────────────────────────────────────────────────
 
     public Juego(Activity activity, ResourceManager res, SharedPreferences prefs) {
@@ -258,12 +265,25 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
         player2.update(delta); player2.updateAttack(delta);
         enemyAI.update(delta);
 
+        if (player1.justHitThisFrame)
+            triggerHitFlash(player1, player2);
+        if (player2.justHitThisFrame)
+            triggerHitFlash(player2, player1);
+        if (hitFlashTimer > 0) hitFlashTimer -= delta;
+
         float maxX = WORLD_W - MAP_MIN_X;
         player1.x = Math.max(MAP_MIN_X, Math.min(player1.x, maxX));
         player2.x = Math.max(MAP_MIN_X, Math.min(player2.x, maxX));
 
         if      (player1.currentHealth <= 0) triggerResult(false);
         else if (player2.currentHealth <= 0) triggerResult(true);
+    }
+
+    private void triggerHitFlash(Player attacker, Player defender) {
+        // Punto de impacto: entre atacante y defensor, a altura del torso del defensor
+        hitFlashX = (attacker.x + defender.x) / 2f;
+        hitFlashY = defender.getBodyCanvasY();
+        hitFlashTimer = HIT_FLASH_DURATION;
     }
 
     private void triggerResult(boolean won) {
@@ -301,7 +321,7 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
         res.fontBig.setColor(0xFFFFCC00);
         drawCenteredText(canvas, "ELIGE TU LUCHADOR", 150f, res.fontBig);
 
-        String[] chars = { "Shadow Fist", "Iron Claw", "Sub Zero" };
+        String[] chars = { "Liu Kang", "Goro", "Sub Zero" };
         for (int i = 0; i < chars.length; i++) {
             int bg = (i == selectedCharIdx) ? 0xFF224400 : 0xBB111111;
             drawButton(canvas, btnChars[i], chars[i], bg, res.fontMedium);
@@ -334,6 +354,18 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
 
         player1.draw(canvas);
         player2.draw(canvas);
+
+        // Flash de impacto: estrella amarilla en el punto de golpe
+        if (hitFlashTimer > 0) {
+            float alpha = hitFlashTimer / HIT_FLASH_DURATION;
+            float radius = 90f + (1f - alpha) * 40f;
+            paintHitFlash.setColor(0xFFFFEE00);
+            paintHitFlash.setAlpha((int)(alpha * 230));
+            canvas.drawCircle(hitFlashX, hitFlashY, radius, paintHitFlash);
+            paintHitFlash.setColor(0xFFFFFFFF);
+            paintHitFlash.setAlpha((int)(alpha * 180));
+            canvas.drawCircle(hitFlashX, hitFlashY, radius * 0.5f, paintHitFlash);
+        }
 
         // Flash rojo del especial: dibujado después de los personajes → capa uniforme sin huecos
         if (player1.isAttacking() && player1.getCurrentAttackType() == Player.AttackType.SPECIAL) {
@@ -558,7 +590,7 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
         currentLevel = 1;
         currentStage = res.stages[selectedStageIdx];
 
-        String[] chars  = { "Shadow Fist", "Iron Claw", "Sub Zero" };
+        String[] chars  = { "Liu Kang", "Goro", "Sub Zero" };
         String   p1Name = chars[selectedCharIdx];
         String   p2Name = resolveEnemyName();
 
@@ -582,14 +614,16 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
     }
 
     private String resolveEnemyName() {
-        String[] chars = { "Shadow Fist", "Iron Claw", "Sub Zero" };
+        String[] chars = { "Liu Kang", "Goro", "Sub Zero" };
         if (activeSlot >= 0) {
-            // Historia: enemigo según nivel actual
             int idx = Math.min(currentLevel - 1, ActividadJuego.LEVEL_ENEMY_NAMES.length - 1);
             return ActividadJuego.LEVEL_ENEMY_NAMES[idx];
         }
-        // Arcade y duelo: enemigo aleatorio
-        return chars[(int)(Math.random() * chars.length)];
+        // Arcade/duelo: enemigo aleatorio distinto al jugador
+        String p1Name = player1 != null ? player1.name : chars[selectedCharIdx];
+        java.util.List<String> pool = new java.util.ArrayList<>();
+        for (String c : chars) if (!c.equals(p1Name)) pool.add(c);
+        return pool.get((int)(Math.random() * pool.size()));
     }
 
     /** Actualiza el sprite del enemigo (player2) sin recrear el objeto. */

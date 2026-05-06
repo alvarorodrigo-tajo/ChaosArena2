@@ -61,9 +61,9 @@ public class ResourceManager {
         Bitmap bgCity    = loadBitmap("backgrounds/city_bg.png");
 
         stages = new StageDef[]{
-                new StageDef("Bosque",   bgForest, -40f, 160f),
-                new StageDef("Desierto", bgDesert,   0f, 130f),
-                new StageDef("Ciudad",   bgCity,    40f, 180f),
+                new StageDef("Bosque",   bgForest, -40f,  80f),
+                new StageDef("Desierto", bgDesert,   0f,  60f),
+                new StageDef("Ciudad",   bgCity,    40f,  90f),
         };
     }
 
@@ -71,16 +71,16 @@ public class ResourceManager {
 
     /** Carpeta de assets para cada personaje. */
     public String getFolderForChar(String name) {
-        if (name.contains("Iron Claw")) return "sprites/martial3";
-        if (name.contains("Sub Zero"))  return "sprites/subzero";
-        return "sprites/martial1";
+        if (name.contains("Goro"))     return "sprites/goro";
+        if (name.contains("Sub Zero")) return "sprites/subzero";
+        return "sprites/liu_kang";
     }
 
     /** Prefijo de frames para cada personaje. */
     public String getPrefixForChar(String name) {
-        if (name.contains("Iron Claw")) return "martial3";
-        if (name.contains("Sub Zero"))  return "subzero";
-        return "martial1";
+        if (name.contains("Goro"))     return "goro";
+        if (name.contains("Sub Zero")) return "subzero";
+        return "liu_kang";
     }
 
     // ── Helpers internos ─────────────────────────────────────────────────────
