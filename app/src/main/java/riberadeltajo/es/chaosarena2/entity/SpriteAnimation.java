@@ -10,7 +10,6 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Reemplaza TextureAtlas + Animation de libGDX.
  * Carga frames individuales desde assets/sprites/<prefijo>/<nombre>_001.png ...
  * y los reproduce como animación con control de duración y modo de bucle.
  */

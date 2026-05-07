@@ -9,7 +9,6 @@ import android.view.MotionEvent;
 
 /**
  * Joystick virtual dibujado en Canvas.
- * Reemplaza el Touchpad de libGDX Scene2D.
  */
 public class VirtualJoystick {
 

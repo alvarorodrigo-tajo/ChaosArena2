@@ -282,11 +282,11 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
         player2.update(delta); player2.updateAttack(delta);
         enemyAI.update(delta);
 
-        if (player1.justHitThisFrame)
-            triggerHitFlash(player1, player2);
-        if (player2.justHitThisFrame)
-            triggerHitFlash(player2, player1);
-        if (hitFlashTimer > 0) hitFlashTimer -= delta;
+//        if (player1.justHitThisFrame)
+//            triggerHitFlash(player1, player2);
+//        if (player2.justHitThisFrame)
+//            triggerHitFlash(player2, player1);
+//        if (hitFlashTimer > 0) hitFlashTimer -= delta;
 
         float maxX = WORLD_W - MAP_MIN_X;
         player1.x = Math.max(MAP_MIN_X, Math.min(player1.x, maxX));
@@ -296,12 +296,12 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
         else if (player2.currentHealth <= 0) triggerResult(true);
     }
 
-    private void triggerHitFlash(Player attacker, Player defender) {
-        // Punto de impacto: entre atacante y defensor, a altura del torso del defensor
-        hitFlashX = (attacker.x + defender.x) / 2f;
-        hitFlashY = defender.getBodyCanvasY();
-        hitFlashTimer = HIT_FLASH_DURATION;
-    }
+//    private void triggerHitFlash(Player attacker, Player defender) {
+//        // Punto de impacto: entre atacante y defensor, a altura del torso del defensor
+//        hitFlashX = (attacker.x + defender.x) / 2f;
+//        hitFlashY = defender.getBodyCanvasY();
+//        hitFlashTimer = HIT_FLASH_DURATION;
+//    }
 
     private void triggerResult(boolean won) {
         if (pendingResult) return;          // ya en espera, ignorar duplicados
@@ -418,17 +418,17 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
         player1.draw(canvas);
         player2.draw(canvas);
 
-        // Flash de impacto: estrella amarilla en el punto de golpe
-        if (hitFlashTimer > 0) {
-            float alpha = hitFlashTimer / HIT_FLASH_DURATION;
-            float radius = 90f + (1f - alpha) * 40f;
-            paintHitFlash.setColor(0xFFFFEE00);
-            paintHitFlash.setAlpha((int)(alpha * 230));
-            canvas.drawCircle(hitFlashX, hitFlashY, radius, paintHitFlash);
-            paintHitFlash.setColor(0xFFFFFFFF);
-            paintHitFlash.setAlpha((int)(alpha * 180));
-            canvas.drawCircle(hitFlashX, hitFlashY, radius * 0.5f, paintHitFlash);
-        }
+//        // Flash de impacto: estrella amarilla en el punto de golpe
+//        if (hitFlashTimer > 0) {
+//            float alpha = hitFlashTimer / HIT_FLASH_DURATION;
+//            float radius = 90f + (1f - alpha) * 40f;
+//            paintHitFlash.setColor(0xFFFFEE00);
+//            paintHitFlash.setAlpha((int)(alpha * 230));
+//            canvas.drawCircle(hitFlashX, hitFlashY, radius, paintHitFlash);
+//            paintHitFlash.setColor(0xFFFFFFFF);
+//            paintHitFlash.setAlpha((int)(alpha * 180));
+//            canvas.drawCircle(hitFlashX, hitFlashY, radius * 0.5f, paintHitFlash);
+//        }
 
         // Flash rojo del especial: dibujado después de los personajes → capa uniforme sin huecos
         if (player1.isAttacking() && player1.getCurrentAttackType() == Player.AttackType.SPECIAL) {

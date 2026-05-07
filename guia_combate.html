@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>ChaosArena2 - Guia de Modificacion del Sistema de Combate</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; color: #1a1a1a; background: #fff; }
+
+  .page { max-width: 900px; margin: 0 auto; padding: 30px 40px; }
+
+  h1 { font-size: 22px; font-weight: 800; color: #0a0a0a; border-bottom: 3px solid #c0392b; padding-bottom: 8px; margin-bottom: 4px; }
+  .subtitle { font-size: 11px; color: #666; margin-bottom: 24px; }
+
+  h2 { font-size: 15px; font-weight: 700; color: #fff; background: #c0392b; padding: 6px 12px; margin: 28px 0 0 0; border-radius: 4px 4px 0 0; }
+  h3 { font-size: 13px; font-weight: 700; color: #c0392b; margin: 14px 0 4px 0; border-left: 3px solid #c0392b; padding-left: 8px; }
+
+  .section { border: 1px solid #ddd; border-top: none; border-radius: 0 0 4px 4px; margin-bottom: 4px; }
+  .section-body { padding: 12px 16px; }
+
+  table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 12px; }
+  th { background: #2c3e50; color: #fff; padding: 6px 10px; text-align: left; font-weight: 600; }
+  td { padding: 5px 10px; border-bottom: 1px solid #eee; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f8f8; }
+  tr:last-child td { border-bottom: none; }
+
+  .file { font-family: 'Consolas', monospace; background: #2c3e50; color: #e8f4f8; padding: 1px 6px; border-radius: 3px; font-size: 11px; }
+  .line { font-family: 'Consolas', monospace; background: #c0392b; color: #fff; padding: 1px 5px; border-radius: 3px; font-size: 11px; font-weight: 600; }
+  code { font-family: 'Consolas', monospace; background: #f0f0f0; padding: 1px 5px; border-radius: 2px; font-size: 11px; color: #c0392b; }
+
+  .code-block { background: #1e1e1e; color: #d4d4d4; font-family: 'Consolas', monospace; font-size: 11px; padding: 10px 14px; border-radius: 4px; margin: 6px 0; line-height: 1.6; overflow-x: auto; }
+  .code-block .kw  { color: #569cd6; }
+  .code-block .num { color: #b5cea8; }
+  .code-block .str { color: #ce9178; }
+  .code-block .cmt { color: #6a9955; }
+
+  .tip { background: #e8f5e9; border-left: 4px solid #27ae60; padding: 8px 12px; margin: 8px 0; border-radius: 0 4px 4px 0; font-size: 12px; }
+  .warn { background: #fff3e0; border-left: 4px solid #f39c12; padding: 8px 12px; margin: 8px 0; border-radius: 0 4px 4px 0; font-size: 12px; }
+
+  .flow { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; align-items: center; }
+  .step { background: #2c3e50; color: #fff; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .arrow { color: #c0392b; font-weight: 700; font-size: 14px; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 8px 0; }
+
+  .toc { background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; padding: 12px 16px; margin-bottom: 20px; }
+  .toc h4 { font-size: 12px; color: #666; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .toc ol { margin-left: 16px; }
+  .toc li { font-size: 12px; margin: 3px 0; color: #2c3e50; }
+
+  @media print {
+    body { font-size: 11px; }
+    h2 { page-break-before: auto; }
+    .page { padding: 15px 20px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>ChaosArena2 &mdash; Guia de Modificacion del Sistema de Combate</h1>
+<p class="subtitle">Archivo de referencia &bull; Donde encontrar y que cambiar segun lo que quieras modificar</p>
+
+<div class="toc">
+  <h4>Indice</h4>
+  <ol>
+    <li>Vida de los personajes (HP)</li>
+    <li>Dano de los ataques (Punch / Kick / Special)</li>
+    <li>Alcance de los ataques (hitbox de ataque)</li>
+    <li>Knockback (empuje al recibir golpe)</li>
+    <li>Hitbox del cuerpo (caja de colision del personaje)</li>
+    <li>Fisica (gravedad, salto)</li>
+    <li>Velocidad de animaciones</li>
+    <li>Comportamiento de la IA enemiga</li>
+    <li>Buffs del modo arcade</li>
+    <li>Eventos aleatorios</li>
+    <li>Debug visual de hitboxes</li>
+    <li>Flujo completo de un golpe (resumen tecnico)</li>
+  </ol>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════ 1 ═══ -->
+<h2>1. Vida de los personajes (HP)</h2>
+<div class="section"><div class="section-body">
+
+  <h3>Vida base de cualquier personaje</h3>
+  <table>
+    <tr><th>Archivo</th><th>Linea</th><th>Codigo actual</th><th>Que cambia</th></tr>
+    <tr>
+      <td><span class="file">entity/Player.java</span></td>
+      <td><span class="line">42</span></td>
+      <td><code>public float maxHealth = 250, currentHealth = 250;</code></td>
+      <td>Vida maxima y vida inicial de todos los personajes por defecto</td>
+    </tr>
+  </table>
+  <div class="code-block"><span class="cmt">// Cambiar a 400 de vida:</span>
+<span class="kw">public float</span> maxHealth = <span class="num">400</span>, currentHealth = <span class="num">400</span>;</div>
+
+  <h3>Vida en modo Duelo o historia (sobreescritura)</h3>
+  <p style="margin:6px 0 4px">Busca el metodo <code>applyModeConfig()</code> en <span class="file">engine/Juego.java</span>. Ahi se sobreescriben los HP segun el modo de juego seleccionado.</p>
+  <div class="tip"><b>Pista:</b> Si cambias la linea 42 de Player.java pero en partida los personajes siguen teniendo 600 de vida, es porque <code>applyModeConfig()</code> los sobreescribe justo antes de empezar el combate.</div>
+
+  <h3>Regeneracion de vida por segundo</h3>
+  <table>
+    <tr><th>Archivo</th><th>Linea</th><th>Codigo</th><th>Que cambia</th></tr>
+    <tr>
+      <td><span class="file">entity/Player.java</span></td>
+      <td><span class="line">48</span></td>
+      <td><code>public float regenPerSec = 0f;</code></td>
+      <td>HP por segundo que se regenera. 0 = sin regeneracion</td>
+    </tr>
+    <tr>
+      <td><span class="file">entity/Player.java</span></td>
+      <td><span class="line">163-164</span></td>
+      <td><code>currentHealth = Math.min(maxHealth, currentHealth + regenPerSec * delta);</code></td>
+      <td>Logica real de regeneracion. Se ejecuta cada frame mientras el personaje vive</td>
+    </tr>
+  </table>
+
+</div></div>
+
+
+<!-- ═══════════════════════════════════════════════════════ 2 ═══ -->
+<h2>2. Dano de los ataques</h2>
+<div class="section"><div class="section-body">
+
+  <h3>Dano base por tipo de ataque</h3>
+  <table>
+    <tr><th>Archivo</th><th>Linea</th><th>Ataque</th><th>Valor actual</th><th>Que cambia</th></tr>
+    <tr>
+      <td rowspan="3"><span class="file">entity/Player.java</span></td>
+      <td rowspan="3"><span class="line">194-195</span></td>
+      <td>PUNCH</td><td><code>10f</code></td><td>Dano base del punetazo</td>
+    </tr>
+    <tr>
+      <td>KICK</td><td><code>15f</code></td><td>Dano base de la patada</td>
+    </tr>
+    <tr>
+      <td>SPECIAL</td><td><code>45f</code></td><td>Dano base del especial</td>
+    </tr>
+  </table>
+
+  <div class="code-block"><span class="kw">float</span> baseDmg = (currentAttackType == AttackType.SPECIAL) ? <span class="num">45f</span>
+        : (currentAttackType == AttackType.KICK)    ? <span class="num">15f</span> : <span class="num">10f</span>;</div>
+
+  <h3>Multiplicador de dano del jugador (buffs y dificultad)</h3>
+  <table>
+    <tr><th>Archivo</th><th>Linea</th><th>Codigo</th><th>Que cambia</th></tr>
+    <tr>
+      <td><span class="file">entity/Player.java</span></td>
+      <td><span class="line">44</span></td>
+      <td><code>public float damageMultiplier = 1.0f;</code></td>
+      <td>Multiplicador base. 1.0 = normal, 1.5 = 50% mas dano</td>
+    </tr>
+    <tr>
+      <td><span class="file">entity/Player.java</span></td>
+      <td><span class="line">198</span></td>
+      <td><code>float dmg = baseDmg * damageMultiplier;</code></td>
+      <td>Aqui se aplica el multiplicador al dano base</td>
+    </tr>
+  </table>
+
+  <h3>Golpe critico</h3>
+  <table>
+    <tr><th>Archivo</th><th>Linea</th><th>Codigo</th><th>Que cambia</th></tr>
+    <tr>
+      <td><span class="file">entity/Player.java</span></td>
+      <td><span class="line">48</span></td>
+      <td><code>public float criticalChance = 0f;</code></td>
+      <td>Probabilidad de critico. 0.1 = 10%, 0.5 = 50%</td>
+    </tr>
+    <tr>
+      <td><span class="file">entity/Player.java</span></td>
+      <td><span class="line">199</span></td>
+      <td><code>if (Math.random() &lt; criticalChance) dmg *= 2f;</code></td>
+      <td>El critico dobla el dano. Cambia <code>2f</code> para otro multiplicador</td>
+    </tr>
+  </table>
+
+  <h3>Armadura (reduccion de dano recibido)</h3>
+  <table>
+    <tr><th>Archivo</th><th>Linea</th><th>Codigo</th><th>Que cambia</th></tr>
+    <tr>
+      <td><span class="file">entity/Player.java</span></td>
+      <td><span class="line">47</span></td>
+      <td><code>public float armorPercent = 0f;</code></td>
+      <td>Porcentaje de dano absorbido. 0.20 = 20% menos dano recibido</td>
+    </tr>
+    <tr>
+      <td><span class="file">entity/Player.java</span></td>
+      <td><span class="line">243</span></td>
+      <td><code>float reduced = amount * Math.max(0, 1.0f - armorPercent);</code></td>
+      <td>Formula de reduccion. Con armor=0.20 recibe el 80% del dano</td>
+    </tr>
+  </table>
+
+  <h3>Lifesteal (vida robada al atacar)</h3>
+  <table>
+    <tr><th>Archivo</th><th>Linea</th><th>Codigo</th><th>Que cambia</th></tr>
+    <tr>
+      <td><span class="file">entity/Player.java</span></td>
+      <td><span class="line">46</span></td>
+      <td><code>public float lifestealPercent = 0f;</code></td>
+      <td>Porcentaje de dano que se convierte en vida. 0.10 = 10%</td>
+    </tr>
+    <tr>
+      <td><span class="file">entity/Player.java</span></td>
+      <td><span class="line">202-203</span></td>
+      <td><code>currentHealth = Math.min(maxHealth, currentHealth + dmg * lifestealPercent);</code></td>
+      <td>Logica del lifesteal. Solo activa si <code>lifestealPercent &gt; 0</code></td>
+    </tr>
+  </table>
+
+</div></div>
+
+
+<!-- ═══════════════════════════════════════════════════════ 3 ═══ -->
+<h2>3. Alcance de los ataques (hasta donde llega el golpe)</h2>
+<div class="section"><div class="section-body">
+
+  <h3>Distancia que alcanza cada ataque</h3>
+  <table>
+    <tr><th>Archivo</th><th>Linea</th><th>Ataque</th><th>Valor actual (px)</th></tr>
+    <tr>
+      <td rowspan="3"><span class="file">entity/Player.java</span></td>
+      <td rowspan="3"><span class="line">269-270</span></td>
+      <td>PUNCH</td><td><code>300</code></td>
+    </tr>
+    <tr><td>KICK</td><td><code>400</code></td></tr>
+    <tr><td>SPECIAL</td><td><code>700</code></td></tr>
+  </table>
+
+  <div class="code-block"><span class="kw">float</span> reach = (currentAttackType == AttackType.KICK)    ? <span class="num">400</span>
+        : (currentAttackType == AttackType.SPECIAL)  ? <span class="num">700</span> : <span class="num">300</span>;</div>
+
+  <div class="warn"><b>Nota:</b> Este valor esta duplicado en <span class="file">Player.java</span> linea <span class="line">307-308</span> (solo para el dibujo debug). Si cambias el alcance real (linea 269) tambien actualiza el de debug para que los rectangulos rojos coincidan.</div>
+
+  <h3>Cuando dentro del ataque se comprueba el golpe (hitTime)</h3>
+  <table>
+    <tr><th>Archivo</th><th>Linea</th><th>Codigo</th><th>Efecto</th></tr>
+    <tr>
+      <td><span class="file">entity/Player.java</span></td>
+      <td><span class="line">191-193</span></td>
+      <td><code>hitTime = totalDuration * 0.45f</code> (SPECIAL)<br><code>hitTime = totalDuration / 2f</code> (resto)</td>
+      <td>El golpe se detecta cuando la animacion lleva el 45%/50% de su duracion. Reduce para golpes mas rapidos, aumenta para mas lentos</td>
+    </tr>
+  </table>
+
+</div></div>
+
+
+<!-- ═══════════════════════════════════════════════════════ 4 ═══ -->
+<h2>4. Knockback (empuje al recibir golpe)</h2>
+<div class="section"><div class="section-body">
+
+  <table>
+    <tr><th>Archivo</th><th>Linea</th><th>Ataque</th><th>Valor actual (px)</th></tr>
+    <tr>
+      <td rowspan="3"><span class="file">entity/Player.java</span></td>
+      <td rowspan="3"><span class="line">196-197</span></td>
+      <td>PUNCH</td><td><code>45f</code></td>
+    </tr>
+    <tr><td>KICK</td><td><code>80f</code></td></tr>
+    <tr><td>SPECIAL</td><td><code>120f</code></td></tr>
+  </table>
+
+  <div class="code-block"><span class="kw">float</span> knockback = (currentAttackType == AttackType.SPECIAL) ? <span class="num">120f</span>
+        : (currentAttackType == AttackType.KICK)    ?  <span class="num">80f</span> : <span class="num">45f</span>;</div>
+
+  <p style="margin-top:8px">La direccion del empuje se calcula en <span class="file">Player.java</span> linea <span class="line">247-248</span>. Si el oponente esta a la izquierda, el empuje va a la derecha y viceversa.</p>
+
+</div></div>
+
+
+<!-- ═══════════════════════════════════════════════════════ 5 ═══ -->
+<h2>5. Hitbox del cuerpo (caja de colision del personaje)</h2>
+<div class="section"><div class="section-body">
+
+  <p style="margin-bottom:8px">La hitbox se calcula en <span class="file">entity/Player.java</span> metodo <code>getHitbox()</code> linea <span class="line">257-264</span>. El tamano depende de las variables <code>hbWMult</code>, <code>hbHMult</code>, <code>hbOffsetX</code>, <code>hbOffsetY</code>.</p>
+
+  <h3>Valores por personaje (<code>calibrateScale</code>, linea 119)</h3>
+  <table>
+    <tr><th>Personaje</th><th>hbWMult</th><th>hbHMult</th><th>hbOffsetX</th><th>hbOffsetY</th><th>scale</th></tr>
+    <tr><td>Sub Zero</td><td><code>0.105f</code></td><td><code>0.490f</code></td><td><code>-58f</code></td><td><code>164f</code></td><td><code>4.0f</code></td></tr>
+    <tr><td>Goro</td><td><code>0.35f</code> (defecto)</td><td><code>0.80f</code> (defecto)</td><td><code>0f</code></td><td><code>0f</code></td><td><code>4.0f</code></td></tr>
+    <tr><td>Liu Kang</td><td><code>0.35f</code> (defecto)</td><td><code>0.80f</code> (defecto)</td><td><code>0f</code></td><td><code>0f</code></td><td><code>4.0f</code></td></tr>
+  </table>
+
+  <div class="two-col">
+    <div>
+      <h3>Como ajustar la hitbox</h3>
+      <ul style="margin-left:16px; font-size:12px; line-height:1.8">
+        <li><b>hbWMult</b>: anchura relativa al frame. Sube = caja mas ancha</li>
+        <li><b>hbHMult</b>: altura relativa al frame. Sube = caja mas alta</li>
+        <li><b>hbOffsetX</b>: desplazamiento horizontal en px. Positivo = derecha</li>
+        <li><b>hbOffsetY</b>: desplazamiento vertical hacia abajo desde el tope del frame</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Ver la hitbox en pantalla</h3>
+      <p style="font-size:12px; line-height:1.8">Activa <code>DEBUG_HITBOXES = true</code> en <span class="file">Player.java</span> linea <span class="line">61</span> para ver:</p>
+      <ul style="margin-left:16px; font-size:12px; line-height:1.8">
+        <li><b>Verde</b> = cuerpo del personaje</li>
+        <li><b>Rojo</b> = area de ataque extendida</li>
+      </ul>
+    </div>
+  </div>
+
+</div></div>
+
+
+<!-- ═══════════════════════════════════════════════════════ 6 ═══ -->
+<h2>6. Fisica (gravedad, fuerza del salto)</h2>
+<div class="section"><div class="section-body">
+
+  <table>
+    <tr><th>Archivo</th><th>Linea</th><th>Constante</th><th>Valor</th><th>Efecto al cambiar</th></tr>
+    <tr>
+      <td rowspan="2"><span class="file">entity/Player.java</span></td>
+      <td><span class="line">26</span></td>
+      <td><code>GRAVITY</code></td>
+      <td><code>-2500f</code></td>
+      <td>Mas negativo = cae mas rapido. Menos negativo = flota</td>
+    </tr>
+    <tr>
+      <td><span class="line">27</span></td>
+      <td><code>JUMP_FORCE</code></td>
+      <td><code>1150f</code></td>
+      <td>Mas alto = salta mas. Se aplica en <code>jump()</code> linea 213</td>
+    </tr>
+  </table>
+
+  <div class="tip"><b>Relacion:</b> El salto depende de ambas. Si aumentas JUMP_FORCE sin tocar GRAVITY, el personaje llegara mas alto pero tardara lo mismo en caer. Para saltos mas flotantes sube ambas con la misma proporcion.</div>
+
+</div></div>
+
+
+<!-- ═══════════════════════════════════════════════════════ 7 ═══ -->
+<h2>7. Velocidad de las animaciones</h2>
+<div class="section"><div class="section-body">
+
+  <p style="margin-bottom:8px">Las animaciones se cargan en <code>loadAnimations()</code>, <span class="file">entity/Player.java</span> linea <span class="line">95-117</span>. El segundo parametro numerico es el tiempo por frame (segundos). Menos tiempo = animacion mas rapida.</p>
+
+  <table>
+    <tr><th>Animacion</th><th>Linea</th><th>Tiempo por frame</th></tr>
+    <tr><td>idle (quieto)</td><td><span class="line">98</span></td><td><code>0.12f</code></td></tr>
+    <tr><td>walk/run</td><td><span class="line">99</span></td><td><code>0.10f</code></td></tr>
+    <tr><td>punch (attack1)</td><td><span class="line">100</span></td><td><code>0.08f</code></td></tr>
+    <tr><td>kick (attack2)</td><td><span class="line">101</span></td><td><code>0.10f</code></td></tr>
+    <tr><td>hurt (takehit)</td><td><span class="line">102</span></td><td><code>0.12f</code></td></tr>
+    <tr><td>jump</td><td><span class="line">103</span></td><td><code>0.10f</code></td></tr>
+    <tr><td>death</td><td><span class="line">104</span></td><td><code>0.12f</code></td></tr>
+  </table>
+
+  <div class="warn"><b>Atencion:</b> Cambiar la velocidad del punch cambia la duracion total del ataque (<code>punchAnim.getDuration()</code>), lo que a su vez mueve el momento de impacto (<code>hitTime</code>). Si aceleras la animacion, el golpe tambien llegara antes.</div>
+
+</div></div>
+
+
+<!-- ═══════════════════════════════════════════════════════ 8 ═══ -->
+<h2>8. Comportamiento de la IA enemiga</h2>
+<div class="section"><div class="section-body">
+
+  <p style="margin-bottom:8px">Toda la logica de IA esta en <span class="file">ai/EnemyAI.java</span>.</p>
+
+  <h3>Estadisticas base de la IA</h3>
+  <table>
+    <tr><th>Variable</th><th>Linea</th><th>Valor defecto</th><th>Efecto</th></tr>
+    <tr><td><code>speed</code></td><td><span class="line">16</span></td><td><code>350f</code></td><td>Velocidad de desplazamiento en px/s</td></tr>
+    <tr><td><code>damage</code></td><td><span class="line">17</span></td><td><code>5f</code></td><td>Escala el <code>damageMultiplier</code> del NPC (divide entre 10)</td></tr>
+    <tr><td><code>attackRate</code></td><td><span class="line">18</span></td><td><code>1.8f</code></td><td>Segundos de espera entre ataques. Menos = ataca mas seguido</td></tr>
+  </table>
+
+  <h3>Distancias de decision</h3>
+  <table>
+    <tr><th>Linea</th><th>Distancia</th><th>Comportamiento</th></tr>
+    <tr><td><span class="line">64</span></td><td>&lt; 250 px</td><td>Pasa a atacar si puede, si no espera</td></tr>
+    <tr><td><span class="line">105</span></td><td>&gt; 350 px</td><td>Persigue al jugador</td></tr>
+    <tr><td><span class="line">108</span></td><td>&lt; 180 px</td><td>30% probabilidad de retroceder, si no, ataca</td></tr>
+  </table>
+
+  <h3>Eleccion de ataque</h3>
+  <table>
+    <tr><th>Condicion</th><th>Ataque elegido</th><th>Linea</th></tr>
+    <tr><td><code>comboCharge &gt;= 100</code></td><td>SPECIAL</td><td><span class="line">130-131</span></td></tr>
+    <tr><td>distancia &gt; 200 px</td><td>KICK</td><td><span class="line">132-133</span></td></tr>
+    <tr><td>distancia &lt;= 200 px</td><td>60% PUNCH / 40% KICK</td><td><span class="line">135</span></td></tr>
+  </table>
+
+  <h3>Reaccion al ataque especial del jugador</h3>
+  <p style="font-size:12px; margin-top:4px">Linea <span class="line">51-55</span>: si el jugador lanza un SPECIAL, la IA retrocede durante 0.5 segundos. Si es un ataque normal y la IA esta cerca, tiene 70% de probabilidad de retroceder.</p>
+
+</div></div>
+
+
+<!-- ═══════════════════════════════════════════════════════ 9 ═══ -->
+<h2>9. Buffs del modo arcade</h2>
+<div class="section"><div class="section-body">
+
+  <p style="margin-bottom:8px">Los buffs se gestionan en <span class="file">progression/RunManager.java</span>.</p>
+
+  <h3>Valores base de cada buff (para el jugador)</h3>
+  <table>
+    <tr><th>Tipo de buff</th><th>Linea</th><th>Comun</th><th>Raro (x1.5)</th><th>Epico (x2.5)</th></tr>
+    <tr><td>DAMAGE (multiplicador)</td><td><span class="line">72</span></td><td><code>+0.15</code></td><td><code>+0.225</code></td><td><code>+0.375</code></td></tr>
+    <tr><td>SPEED (multiplicador)</td><td><span class="line">73</span></td><td><code>+0.10</code></td><td><code>+0.15</code></td><td><code>+0.25</code></td></tr>
+    <tr><td>HEALTH (hp fijos)</td><td><span class="line">74</span></td><td><code>+30 HP</code></td><td><code>+45 HP</code></td><td><code>+75 HP</code></td></tr>
+    <tr><td>LIFESTEAL (%)</td><td><span class="line">75</span></td><td><code>+3%</code></td><td><code>+4.5%</code></td><td><code>+7.5%</code></td></tr>
+    <tr><td>ARMOR (%)</td><td><span class="line">76</span></td><td><code>+5%</code></td><td><code>+7.5%</code></td><td><code>+12.5%</code></td></tr>
+    <tr><td>CRITICAL (%)</td><td><span class="line">77</span></td><td><code>+10%</code></td><td><code>+15%</code></td><td><code>+25%</code></td></tr>
+    <tr><td>REGEN (HP/s)</td><td><span class="line">78</span></td><td><code>+2 HP/s</code></td><td><code>+3 HP/s</code></td><td><code>+5 HP/s</code></td></tr>
+  </table>
+
+  <h3>Probabilidades de rareza</h3>
+  <table>
+    <tr><th>Rareza</th><th>Linea</th><th>Probabilidad</th></tr>
+    <tr><td>Epico</td><td><span class="line">67</span></td><td><code>r &gt; 0.9</code> → 10%</td></tr>
+    <tr><td>Raro</td><td><span class="line">68</span></td><td><code>r &gt; 0.6</code> → 30%</td></tr>
+    <tr><td>Comun</td><td>&mdash;</td><td>60% restante</td></tr>
+  </table>
+
+  <h3>Escalado progresivo de enemigos</h3>
+  <table>
+    <tr><th>Victorias</th><th>Linea</th><th>Buffs extra al enemigo</th></tr>
+    <tr><td>0-2</td><td><span class="line">157-158</span></td><td>Ninguno</td></tr>
+    <tr><td>3-5</td><td><span class="line">159</span></td><td>1 buff aleatorio</td></tr>
+    <tr><td>6+</td><td><span class="line">158</span></td><td>2 buffs aleatorios</td></tr>
+  </table>
+
+  <h3>Slots maximos de buffs del jugador</h3>
+  <table>
+    <tr><th>Archivo</th><th>Linea</th><th>Codigo</th></tr>
+    <tr>
+      <td><span class="file">progression/RunManager.java</span></td>
+      <td><span class="line">9</span></td>
+      <td><code>private static final int MAX_BUFF_SLOTS = 6;</code></td>
+    </tr>
+  </table>
+
+</div></div>
+
+
+<!-- ══════════════════════════════════════════════════════ 10 ═══ -->
+<h2>10. Eventos aleatorios (cada 3 victorias)</h2>
+<div class="section"><div class="section-body">
+
+  <p style="margin-bottom:8px">Los eventos se generan en <code>generateRandomEvent()</code>, <span class="file">progression/RunManager.java</span> linea <span class="line">46-56</span>.</p>
+
+  <table>
+    <tr><th>Evento</th><th>Efecto actual</th><th>Donde cambiar</th></tr>
+    <tr><td>HEAL</td><td>Cura 30% de vida maxima</td><td>Linea 49 (texto) y donde se aplica en Juego.java)</td></tr>
+    <tr><td>HARDER_COMBAT</td><td>Enemigo +50% HP y dano</td><td>Lineas 134-138 en RunManager</td></tr>
+    <tr><td>GLOBAL_MODIFIER</td><td>Dano x1.5 en la proxima pelea</td><td>Linea 52 (texto). Se aplica via <code>setGlobalDamageMultiplier(1.5f)</code></td></tr>
+    <tr><td>POISON</td><td>Pierdes 20% de tu vida actual</td><td>Linea 53 (texto) y donde se aplica en Juego.java</td></tr>
+    <tr><td>ENEMY_HEAL</td><td>Enemigo con +100 HP extra</td><td>Lineas 141-143 en RunManager</td></tr>
+  </table>
+
+  <div class="tip"><b>Para cambiar frecuencia de eventos:</b> <span class="file">RunManager.java</span> linea <span class="line">43</span>: <code>fightsWon % 3 == 0</code>. Cambia el <code>3</code> por otro numero (cada N victorias).</div>
+
+</div></div>
+
+
+<!-- ══════════════════════════════════════════════════════ 11 ═══ -->
+<h2>11. Debug visual de hitboxes</h2>
+<div class="section"><div class="section-body">
+
+  <table>
+    <tr><th>Archivo</th><th>Linea</th><th>Codigo</th><th>Efecto</th></tr>
+    <tr>
+      <td><span class="file">entity/Player.java</span></td>
+      <td><span class="line">61</span></td>
+      <td><code>public static boolean DEBUG_HITBOXES = true;</code></td>
+      <td>Cambia a <code>false</code> para ocultar los rectangulos de debug en pantalla</td>
+    </tr>
+  </table>
+
+  <p style="margin-top:8px; font-size:12px">Con <code>true</code> se dibujan: rectangulo <b>verde</b> = hitbox del cuerpo, rectangulo <b>rojo</b> = area de ataque activa (solo durante ATTACKING).</p>
+
+</div></div>
+
+
+<!-- ══════════════════════════════════════════════════════ 12 ═══ -->
+<h2>12. Flujo completo de un golpe (resumen tecnico)</h2>
+<div class="section"><div class="section-body">
+
+  <div class="flow">
+    <span class="step">1. Boton presionado</span>
+    <span class="arrow">→</span>
+    <span class="step">player.attack(PUNCH)</span>
+    <span class="arrow">→</span>
+    <span class="step">Estado = ATTACKING</span>
+    <span class="arrow">→</span>
+    <span class="step">attackTime = 0</span>
+  </div>
+  <div style="margin:6px 0; font-size:12px; color:#555">Archivo: Player.java lineas 231-239</div>
+
+  <div class="flow" style="margin-top:10px">
+    <span class="step">2. Cada frame</span>
+    <span class="arrow">→</span>
+    <span class="step">updateAttack(delta)</span>
+    <span class="arrow">→</span>
+    <span class="step">attackTime avanza</span>
+    <span class="arrow">→</span>
+    <span class="step">¿attackTime &gt; hitTime?</span>
+  </div>
+  <div style="margin:6px 0; font-size:12px; color:#555">Archivo: Player.java lineas 169-208</div>
+
+  <div class="flow" style="margin-top:10px">
+    <span class="step">3. Si attackTime &gt; hitTime</span>
+    <span class="arrow">→</span>
+    <span class="step">canHit(opponent)</span>
+    <span class="arrow">→</span>
+    <span class="step">RectF.intersects?</span>
+    <span class="arrow">→</span>
+    <span class="step">Si hay colision</span>
+  </div>
+  <div style="margin:6px 0; font-size:12px; color:#555">Archivo: Player.java lineas 190-193 y 266-274</div>
+
+  <div class="flow" style="margin-top:10px">
+    <span class="step">4. Calcular dano</span>
+    <span class="arrow">→</span>
+    <span class="step">baseDmg * multiplier</span>
+    <span class="arrow">→</span>
+    <span class="step">¿critico?</span>
+    <span class="arrow">→</span>
+    <span class="step">opponent.takeDamage()</span>
+  </div>
+  <div style="margin:6px 0; font-size:12px; color:#555">Archivo: Player.java lineas 194-201</div>
+
+  <div class="flow" style="margin-top:10px">
+    <span class="step">5. Aplicar dano</span>
+    <span class="arrow">→</span>
+    <span class="step">amount * (1 - armor)</span>
+    <span class="arrow">→</span>
+    <span class="step">currentHealth -= reduced</span>
+    <span class="arrow">→</span>
+    <span class="step">Estado = HURT</span>
+  </div>
+  <div style="margin:6px 0; font-size:12px; color:#555">Archivo: Player.java lineas 242-248</div>
+
+  <div class="flow" style="margin-top:10px">
+    <span class="step">6. ¿currentHealth &lt;= 0?</span>
+    <span class="arrow">→</span>
+    <span class="step">triggerResult()</span>
+    <span class="arrow">→</span>
+    <span class="step">Fin del combate</span>
+  </div>
+  <div style="margin:6px 0; font-size:12px; color:#555">Archivo: Juego.java lineas 295-296</div>
+
+  <div style="margin-top:16px; border-top:1px solid #eee; padding-top:12px">
+    <h3>Tabla resumen de archivos</h3>
+    <table>
+      <tr><th>Archivo</th><th>Para que sirve</th></tr>
+      <tr><td><span class="file">entity/Player.java</span></td><td>Todo lo del personaje: vida, dano, hitbox, animaciones, estados, fisica</td></tr>
+      <tr><td><span class="file">engine/Juego.java</span></td><td>Bucle de combate, UI, pantallas, control de victoria/derrota</td></tr>
+      <tr><td><span class="file">ai/EnemyAI.java</span></td><td>Maquina de estados de la IA: perseguir, atacar, retroceder</td></tr>
+      <tr><td><span class="file">progression/RunManager.java</span></td><td>Buffs del arcade, escalado de enemigos, eventos</td></tr>
+      <tr><td><span class="file">progression/Buff.java</span></td><td>Definicion de un buff individual</td></tr>
+      <tr><td><span class="file">progression/BuffType.java</span></td><td>Enum con los tipos de buff disponibles</td></tr>
+      <tr><td><span class="file">entity/SpriteAnimation.java</span></td><td>Carga y reproduccion de animaciones desde assets</td></tr>
+    </table>
+  </div>
+
+</div></div>
+
+<p style="margin-top:20px; font-size:10px; color:#aaa; text-align:center">ChaosArena2 &bull; Generado 2026-05-07</p>
+
+</div>
+</body>
+</html>

@@ -14,7 +14,6 @@ import riberadeltajo.es.chaosarena2.stage.StageDef;
 
 /**
  * Carga y centraliza todos los assets visuales del juego.
- * Equivalente al ResourceManager de libGDX pero usando Android APIs.
  */
 public class ResourceManager {
 

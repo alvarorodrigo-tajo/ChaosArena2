@@ -58,7 +58,7 @@ public class Player {
     private final Matrix matrix   = new Matrix();
 
     // ── Debug hitboxes ────────────────────────────────────────────────────────
-    public static boolean DEBUG_HITBOXES = true;
+    public static boolean DEBUG_HITBOXES = false;
     private static final Paint dbgBodyPaint;
     private static final Paint dbgAttackPaint;
     static {
@@ -267,7 +267,7 @@ public class Player {
         if (other == null || currentState != State.ATTACKING) return false;
         RectF body  = getHitbox();
         float reach = (currentAttackType == AttackType.KICK)    ? 400
-                : (currentAttackType == AttackType.SPECIAL)  ? 700 : 300;
+                : (currentAttackType == AttackType.SPECIAL)  ? 350 : 300;
         float ax    = facingRight ? body.right : body.left - reach;
         RectF area  = new RectF(ax, body.top, ax + reach, body.bottom);
         return RectF.intersects(area, other.getHitbox());

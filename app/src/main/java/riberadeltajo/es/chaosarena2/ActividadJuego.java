@@ -11,7 +11,7 @@ import riberadeltajo.es.chaosarena2.engine.ResourceManager;
 
 public class ActividadJuego extends AppCompatActivity {
 
-    // ── Constantes de juego (antes en Main.java) ──────────────────────────────
+    // ── Constantes de juego ──────────────────────────────
     public static final int MAX_LEVELS = 3;
     public static final int MAX_SLOTS  = 3;
 
