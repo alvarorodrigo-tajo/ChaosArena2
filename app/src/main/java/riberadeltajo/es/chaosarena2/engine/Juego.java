@@ -430,7 +430,7 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
 //            canvas.drawCircle(hitFlashX, hitFlashY, radius * 0.5f, paintHitFlash);
 //        }
 
-        // Flash rojo del especial: dibujado después de los personajes → capa uniforme sin huecos
+        // Flash rojo del especial: dibujado después de los personajes -> capa uniforme sin huecos
         if (player1.isAttacking() && player1.getCurrentAttackType() == Player.AttackType.SPECIAL) {
             paintOverlay.setColor(0x44FF0000);
             canvas.drawRect(0, 0, WORLD_W, WORLD_H, paintOverlay);
@@ -853,16 +853,6 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
         font.setTextAlign(Paint.Align.CENTER);
         canvas.drawText(text, WORLD_W / 2f, y, font);
         font.setTextAlign(Paint.Align.LEFT);
-    }
-
-    private void drawMultilineText(Canvas canvas, String text, float x, float startY, Paint font) {
-        Paint.FontMetrics fm = font.getFontMetrics();
-        float lineH = (fm.descent - fm.ascent) + 10f;
-        float y = startY;
-        for (String line : text.split("\n")) {
-            canvas.drawText(line, x, y, font);
-            y += lineH;
-        }
     }
 
     private void drawWrappedText(Canvas canvas, String text, float x, float startY, float maxWidth, Paint font) {
