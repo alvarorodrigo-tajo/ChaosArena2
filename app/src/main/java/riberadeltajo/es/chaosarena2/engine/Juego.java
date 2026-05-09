@@ -2,10 +2,11 @@ package riberadeltajo.es.chaosarena2.engine;
 
 import android.app.Activity;
 import android.content.SharedPreferences;
+import android.content.res.AssetFileDescriptor;
 import android.graphics.*;
 import android.media.MediaPlayer;
 import android.view.*;
-
+import java.util.Locale;
 import riberadeltajo.es.chaosarena2.ActividadJuego;
 import riberadeltajo.es.chaosarena2.ai.EnemyAI;
 import riberadeltajo.es.chaosarena2.entity.Player;
@@ -17,7 +18,6 @@ import riberadeltajo.es.chaosarena2.stage.StageDef;
 
 public class Juego extends SurfaceView implements SurfaceHolder.Callback {
 
-    // ── Constantes ────────────────────────────────────────────────────────────
     private static final float WORLD_W      = 1920f;
     private static final float WORLD_H      = 1080f;
     private static final float INITIAL_TIME = 90f;
@@ -27,109 +27,74 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
     private static final float BAR_HEIGHT   = 45f;
     private static final float BAR_COMBO_H  = 12f;
 
-    // ── Motor ─────────────────────────────────────────────────────────────────
     private final Activity activity;
     private final ResourceManager   res;
     private final SharedPreferences prefs;
     private BucleJuego  bucle;
     private MediaPlayer music;
-    private VirtualJoystick joystick;
+    private final VirtualJoystick joystick;
 
-    // ── Escalado mundo→pantalla ───────────────────────────────────────────────
     private final Matrix worldMatrix   = new Matrix();
     private final Matrix inverseMatrix = new Matrix();
 
-    // ── Modo de juego ─────────────────────────────────────────────────────────
-    private int activeSlot;       // >=0 historia | -1 duelo | -2 arcade
+    private int activeSlot; 
     private int currentLevel = 1;
 
-    // ── Estado ────────────────────────────────────────────────────────────────
     private enum Screen { MAIN_MENU, CHAR_SELECT, LORE, FIGHTING, PAUSED, RESULT, BUFF_SELECT, EVENT }
     private Screen currentScreen = Screen.MAIN_MENU;
 
-    // ── Jugadores e IA ────────────────────────────────────────────────────────
     private Player  player1, player2;
     private EnemyAI enemyAI;
 
-    // ── Modo arcade ───────────────────────────────────────────────────────────
     private float      timeLeft          = INITIAL_TIME;
     private int        enemiesDefeated   = 0;
     private float      totalTimeSurvived = 0f;
     private RunManager runManager;
 
-    // ── Resultado ─────────────────────────────────────────────────────────────
     private boolean lastBattleWon    = false;
     private boolean pendingResult    = false;
     private boolean pendingResultWon = false;
     private float   deathDelay       = 0f;
     private static final float DEATH_ANIM_WAIT = 2.5f;
 
-    // ── Escenario ─────────────────────────────────────────────────────────────
     private StageDef currentStage;
 
-    // ── Selección ─────────────────────────────────────────────────────────────
     private int selectedCharIdx      = 0;
     private int selectedEnemyCharIdx = 1;
     private int selectedStageIdx     = 0;
     private int pendingSlot          = 0;
 
-    // ── Buff / Event ──────────────────────────────────────────────────────────
     private java.util.List<Buff> buffChoices;
     private Event pendingEvent;
 
-    // ── Botones — cada pantalla tiene los suyos, nunca se comparten ───────────
+    // --- Efecto Shake ---
+    private float shakeTime      = 0f;
+    private float shakeIntensity = 0f;
 
-    // Menú principal
     private final RectF btnStory  = new RectF();
     private final RectF btnArcade = new RectF();
     private final RectF btnDuel   = new RectF();
-
-    // Selección de personaje
     private final RectF[] btnChars       = { new RectF(), new RectF(), new RectF() };
     private final RectF[] btnEnemyChars  = { new RectF(), new RectF(), new RectF() };
     private final RectF   btnStageChange = new RectF();
     private final RectF   btnLuchar      = new RectF();
-
-    // Botón atrás (esquina superior izquierda)
     private final RectF btnBack = new RectF();
-
-    // Lore
     private final RectF btnStartFight = new RectF();
-
-    // Combate
     private final RectF btnPause   = new RectF();
     private final RectF btnPunch   = new RectF();
     private final RectF btnKick    = new RectF();
     private final RectF btnSpecial = new RectF();
     private final RectF btnJump    = new RectF();
-
-    // Pausa
     private final RectF btnResume   = new RectF();
     private final RectF btnExitMenu = new RectF();
-
-    // Resultado
     private final RectF btnResultAction = new RectF();
     private final RectF btnResultMenu   = new RectF();
-
-    // Selección de buff
     private final RectF[] btnBuffs = { new RectF(), new RectF(), new RectF() };
-
-    // Evento
     private final RectF btnEventOk = new RectF();
 
-    // ── Paints ────────────────────────────────────────────────────────────────
     private final Paint paintOverlay = new Paint();
     private final Paint paintBlack   = new Paint();
     private final Paint paintBitmap  = new Paint(Paint.FILTER_BITMAP_FLAG);
-
-    // ── Efecto de impacto ─────────────────────────────────────────────────────
-    private float hitFlashTimer = 0f;
-    private float hitFlashX     = 0f;
-    private float hitFlashY     = 0f;
-    private static final float HIT_FLASH_DURATION = 0.10f;
-    private final Paint paintHitFlash = new Paint(Paint.ANTI_ALIAS_FLAG);
-
-    // ── Constructor ───────────────────────────────────────────────────────────
 
     public Juego(Activity activity, ResourceManager res, SharedPreferences prefs) {
         super(activity);
@@ -143,55 +108,35 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
         paintOverlay.setColor(0xCC000000);
         paintBlack.setColor(0xFF000000);
 
-        joystick = new VirtualJoystick(280f, WORLD_H - 280f, 180f,
-                res.joystickBg, res.joystickKnob);
-
+        joystick = new VirtualJoystick(280f, WORLD_H - 280f, 180f, res.joystickBg, res.joystickKnob);
         initAllButtonRects();
     }
 
-    // ── Inicialización de botones (posiciones fijas en coordenadas mundo) ─────
-
     private void initAllButtonRects() {
-        // Menú principal — centrados horizontalmente
-        float bw = 700f, bh = 140f, cx = (WORLD_W - bw) / 2f;
+        float bw = 700f, cx = (WORLD_W - bw) / 2f;
         btnStory .set(cx, 350f, cx + bw, 490f);
         btnArcade.set(cx, 530f, cx + bw, 670f);
         btnDuel  .set(cx, 710f, cx + bw, 850f);
 
-        // Selección de personaje
         float cbw = 500f, cbh = 130f, cgap = 80f;
         float totalW = 3 * cbw + 2 * cgap;
         float startX = (WORLD_W - totalW) / 2f;
         for (int i = 0; i < 3; i++)
-            btnChars[i].set(startX + i * (cbw + cgap), 300f,
-                    startX + i * (cbw + cgap) + cbw, 300f + cbh);
+            btnChars[i].set(startX + i * (cbw + cgap), 300f, startX + i * (cbw + cgap) + cbw, 300f + cbh);
+        
         btnStageChange.set(760f, 590f, 1160f, 730f);
-        btnLuchar.set((WORLD_W - 700f) / 2f, WORLD_H - 220f,
-                (WORLD_W + 700f) / 2f, WORLD_H - 80f);
-
-        // Lore
+        btnLuchar.set((WORLD_W - 700f) / 2f, WORLD_H - 220f, (WORLD_W + 700f) / 2f, WORLD_H - 80f);
         btnStartFight.set(660f, WORLD_H - 220f, 1260f, WORLD_H - 80f);
-
-        // Pausa
         btnResume  .set(cx, 480f, cx + bw, 620f);
         btnExitMenu.set(cx, 660f, cx + bw, 800f);
-
-        // Resultado
         btnResultAction.set(cx, 500f, cx + bw, 640f);
         btnResultMenu  .set(cx, 680f, cx + bw, 820f);
-
-        // Evento
         btnEventOk.set(660f, 700f, 1260f, 840f);
-
-        // Botón atrás (esquina superior izquierda, presente en varias pantallas)
         btnBack.set(30f, 20f, 220f, 110f);
     }
 
-    // ── SurfaceHolder.Callback ────────────────────────────────────────────────
-
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
-        // Obtener dimensiones reales antes de arrancar el bucle
         Canvas c = holder.lockCanvas();
         if (c != null) {
             updateScaleMatrix(c.getWidth(), c.getHeight());
@@ -203,8 +148,8 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
     }
 
     @Override
-    public void surfaceChanged(SurfaceHolder h, int f, int w, int h2) {
-        updateScaleMatrix(w, h2);
+    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+        updateScaleMatrix(width, height);
     }
 
     @Override
@@ -228,15 +173,28 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
         }
     }
 
-    // ── Bucle principal ───────────────────────────────────────────────────────
-
     public void actualizar(float delta) {
+        // La vibración siempre decrece, pase lo que pase
+        if (shakeTime > 0) {
+            shakeTime -= delta;
+            if (shakeTime <= 0) {
+                shakeTime = 0;
+                shakeIntensity = 0;
+            }
+        }
         if (currentScreen == Screen.FIGHTING) updateFighting(delta);
     }
 
     public void renderizar(Canvas canvas) {
         canvas.save();
         canvas.concat(worldMatrix);
+
+        // Aplicar vibración si el tiempo de shake es mayor a 0
+        if (shakeTime > 0) {
+            float sx = (float) (Math.random() * shakeIntensity * 2 - shakeIntensity);
+            float sy = (float) (Math.random() * shakeIntensity * 2 - shakeIntensity);
+            canvas.translate(sx, sy);
+        }
 
         switch (currentScreen) {
             case MAIN_MENU:   drawMainMenu(canvas);                        break;
@@ -252,11 +210,9 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
         canvas.restore();
     }
 
-    // ── Update ────────────────────────────────────────────────────────────────
-
     private void updateFighting(float delta) {
-        // Esperando que termine la animación de muerte antes de mostrar resultado
         if (pendingResult) {
+            shakeTime = 0; // Detener vibración en cuanto acaba el combate
             deathDelay += delta;
             player1.update(delta);
             player2.update(delta);
@@ -268,7 +224,7 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
         }
 
         if (activeSlot == -2) {
-            timeLeft          -= delta;
+            timeLeft -= delta;
             totalTimeSurvived += delta;
             if (timeLeft <= 0) { timeLeft = 0; triggerResult(false); return; }
         }
@@ -282,11 +238,12 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
         player2.update(delta); player2.updateAttack(delta);
         enemyAI.update(delta);
 
-//        if (player1.justHitThisFrame)
-//            triggerHitFlash(player1, player2);
-//        if (player2.justHitThisFrame)
-//            triggerHitFlash(player2, player1);
-//        if (hitFlashTimer > 0) hitFlashTimer -= delta;
+        // Lógica de vibración al usar ataque especial
+        if ((player1.isAttacking() && player1.getCurrentAttackType() == Player.AttackType.SPECIAL) ||
+            (player2.isAttacking() && player2.getCurrentAttackType() == Player.AttackType.SPECIAL)) {
+            shakeTime = 0.2f; 
+            shakeIntensity = 45f; // Mayor intensidad para que se note
+        }
 
         float maxX = WORLD_W - MAP_MIN_X;
         player1.x = Math.max(MAP_MIN_X, Math.min(player1.x, maxX));
@@ -296,18 +253,12 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
         else if (player2.currentHealth <= 0) triggerResult(true);
     }
 
-//    private void triggerHitFlash(Player attacker, Player defender) {
-//        // Punto de impacto: entre atacante y defensor, a altura del torso del defensor
-//        hitFlashX = (attacker.x + defender.x) / 2f;
-//        hitFlashY = defender.getBodyCanvasY();
-//        hitFlashTimer = HIT_FLASH_DURATION;
-//    }
-
     private void triggerResult(boolean won) {
-        if (pendingResult) return;          // ya en espera, ignorar duplicados
+        if (pendingResult) return;
         pendingResult    = true;
         pendingResultWon = won;
         deathDelay       = 0f;
+        shakeTime        = 0f; // Detener vibración al terminar
         if (won) {
             player1.forceIdle();
             player2.startDeath();
@@ -317,14 +268,10 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
         }
     }
 
-    // ── Draw ──────────────────────────────────────────────────────────────────
-
     private void drawMainMenu(Canvas canvas) {
         canvas.drawBitmap(res.bgTitle, null, new RectF(0, 0, WORLD_W, WORLD_H), paintBitmap);
-
         res.fontBig.setColor(0xFFFF8800);
         drawCenteredText(canvas, "CHAOS ARENA", WORLD_H * 0.18f, res.fontBig);
-
         res.fontMedium.setColor(0xFFFFFFFF);
         drawButton(canvas, btnStory,  "HISTORIA",    0xBB0A3A0A, res.fontMedium);
         drawButton(canvas, btnArcade, "ARCADE",      0xBB3A1A00, res.fontMedium);
@@ -332,8 +279,7 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
     }
 
     private void drawCharSelect(Canvas canvas) {
-        canvas.drawBitmap(res.stages[selectedStageIdx].bgBitmap,
-                null, new RectF(0, 0, WORLD_W, WORLD_H), paintBitmap);
+        canvas.drawBitmap(res.stages[selectedStageIdx].bgBitmap, null, new RectF(0, 0, WORLD_W, WORLD_H), paintBitmap);
         canvas.drawRect(0, 0, WORLD_W, WORLD_H, paintOverlay);
 
         String[] chars = { "Liu Kang", "Goro", "Sub Zero" };
@@ -342,99 +288,68 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
         float startX = (WORLD_W - totalW) / 2f;
 
         if (pendingSlot == -1) {
-            // Modo duelo: el jugador elige su personaje Y el del rival
             res.fontBig.setColor(0xFFFFCC00);
             drawCenteredText(canvas, "DUELO LOCAL", 95f, res.fontBig);
-
             res.fontMedium.setColor(0xFF88FF88);
             drawCenteredText(canvas, "TU LUCHADOR", 210f, res.fontMedium);
             for (int i = 0; i < chars.length; i++) {
-                btnChars[i].set(startX + i * (cbw + cgap), 235f,
-                        startX + i * (cbw + cgap) + cbw, 345f);
+                btnChars[i].set(startX + i * (cbw + cgap), 235f, startX + i * (cbw + cgap) + cbw, 345f);
                 int bg = (i == selectedCharIdx) ? 0xFF224400 : 0xBB111111;
                 drawButton(canvas, btnChars[i], chars[i], bg, res.fontMedium);
             }
-
             res.fontMedium.setColor(0xFFFF8888);
             drawCenteredText(canvas, "RIVAL", 415f, res.fontMedium);
             for (int i = 0; i < chars.length; i++) {
-                btnEnemyChars[i].set(startX + i * (cbw + cgap), 440f,
-                        startX + i * (cbw + cgap) + cbw, 550f);
+                btnEnemyChars[i].set(startX + i * (cbw + cgap), 440f, startX + i * (cbw + cgap) + cbw, 550f);
                 int bg = (i == selectedEnemyCharIdx) ? 0xFF440022 : 0xBB111111;
                 drawButton(canvas, btnEnemyChars[i], chars[i], bg, res.fontMedium);
             }
-
             btnStageChange.set(760f, 620f, 1160f, 730f);
-            btnLuchar.set((WORLD_W - 700f) / 2f, WORLD_H - 195f,
-                    (WORLD_W + 700f) / 2f, WORLD_H - 55f);
+            btnLuchar.set((WORLD_W - 700f) / 2f, WORLD_H - 195f, (WORLD_W + 700f) / 2f, WORLD_H - 55f);
             res.fontSmall.setColor(0xFFFFFFFF);
             drawCenteredText(canvas, "ESCENARIO: " + res.stages[selectedStageIdx].name, 600f, res.fontSmall);
             drawButton(canvas, btnStageChange, "< CAMBIAR >", 0xBB222222, res.fontMedium);
             drawButton(canvas, btnLuchar,      "¡LUCHAR!",   0xBBAA1100, res.fontBig);
         } else {
-            // Modo historia / arcade: selección normal (solo jugador)
             res.fontBig.setColor(0xFFFFCC00);
             drawCenteredText(canvas, "ELIGE TU LUCHADOR", 150f, res.fontBig);
-
             for (int i = 0; i < chars.length; i++) {
-                btnChars[i].set(startX + i * (cbw + cgap), 300f,
-                        startX + i * (cbw + cgap) + cbw, 430f);
+                btnChars[i].set(startX + i * (cbw + cgap), 300f, startX + i * (cbw + cgap) + cbw, 430f);
                 int bg = (i == selectedCharIdx) ? 0xFF224400 : 0xBB111111;
                 drawButton(canvas, btnChars[i], chars[i], bg, res.fontMedium);
             }
-
             btnStageChange.set(760f, 590f, 1160f, 730f);
-            btnLuchar.set((WORLD_W - 700f) / 2f, WORLD_H - 220f,
-                    (WORLD_W + 700f) / 2f, WORLD_H - 80f);
+            btnLuchar.set((WORLD_W - 700f) / 2f, WORLD_H - 220f, (WORLD_W + 700f) / 2f, WORLD_H - 80f);
             res.fontSmall.setColor(0xFFFFFFFF);
             drawCenteredText(canvas, "ESCENARIO: " + res.stages[selectedStageIdx].name, 560f, res.fontSmall);
             drawButton(canvas, btnStageChange, "< CAMBIAR >", 0xBB222222, res.fontMedium);
             drawButton(canvas, btnLuchar,      "¡LUCHAR!",   0xBBAA1100, res.fontBig);
         }
-
         drawBackButton(canvas);
     }
 
     private void drawLore(Canvas canvas) {
         canvas.drawBitmap(currentStage.bgBitmap, null, new RectF(0, 0, WORLD_W, WORLD_H), paintBitmap);
         canvas.drawRect(0, 0, WORLD_W, WORLD_H, paintOverlay);
-
         String lore = ActividadJuego.LEVEL_LORE[Math.min(currentLevel - 1, ActividadJuego.LEVEL_LORE.length - 1)];
         res.fontSmall.setColor(0xFFFFFFFF);
         drawWrappedText(canvas, lore, 200f, 300f, WORLD_W - 400f, res.fontSmall);
-
         drawButton(canvas, btnStartFight, "EMPEZAR COMBATE", 0xBBAA1100, res.fontMedium);
         drawBackButton(canvas);
     }
 
     private void drawFighting(Canvas canvas) {
         float pShiftX = (player1.x / WORLD_W) * 300f;
-        // Siempre dibujar desde y=0 para que no haya franja negra en la parte superior
-        canvas.drawBitmap(currentStage.bgBitmap, null,
-                new RectF(-pShiftX, 0,
-                        WORLD_W + 300f - pShiftX, WORLD_H),
-                paintBitmap);
-
+        canvas.drawBitmap(currentStage.bgBitmap, null, new RectF(-pShiftX, 0, WORLD_W + 300f - pShiftX, WORLD_H), paintBitmap);
         player1.draw(canvas);
         player2.draw(canvas);
 
-//        // Flash de impacto: estrella amarilla en el punto de golpe
-//        if (hitFlashTimer > 0) {
-//            float alpha = hitFlashTimer / HIT_FLASH_DURATION;
-//            float radius = 90f + (1f - alpha) * 40f;
-//            paintHitFlash.setColor(0xFFFFEE00);
-//            paintHitFlash.setAlpha((int)(alpha * 230));
-//            canvas.drawCircle(hitFlashX, hitFlashY, radius, paintHitFlash);
-//            paintHitFlash.setColor(0xFFFFFFFF);
-//            paintHitFlash.setAlpha((int)(alpha * 180));
-//            canvas.drawCircle(hitFlashX, hitFlashY, radius * 0.5f, paintHitFlash);
-//        }
-
-        // Flash rojo del especial: dibujado después de los personajes -> capa uniforme sin huecos
-        if (player1.isAttacking() && player1.getCurrentAttackType() == Player.AttackType.SPECIAL) {
+        // Efecto visual rojo si alguien lanza especial
+        if ((player1.isAttacking() && player1.getCurrentAttackType() == Player.AttackType.SPECIAL) ||
+            (player2.isAttacking() && player2.getCurrentAttackType() == Player.AttackType.SPECIAL)) {
             paintOverlay.setColor(0x44FF0000);
             canvas.drawRect(0, 0, WORLD_W, WORLD_H, paintOverlay);
-            paintOverlay.setColor(0xCC000000);  // restaurar color original
+            paintOverlay.setColor(0xCC000000);
         }
 
         drawBars(canvas);
@@ -458,13 +373,13 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
         drawCenteredText(canvas, lastBattleWon ? "¡VICTORIA!" : "DERROTA", WORLD_H * 0.28f, res.fontBig);
 
         String actionLabel;
-        if      (activeSlot == -2)                               actionLabel = lastBattleWon ? "ELEGIR MEJORA" : "GUARDAR Y SALIR";
-        else if (lastBattleWon && activeSlot >= 0)               actionLabel = currentLevel > ActividadJuego.MAX_LEVELS ? "COMPLETADO" : "SIGUIENTE";
-        else                                                     actionLabel = lastBattleWon ? "OTRO DUELO" : "REINTENTAR";
+        if      (activeSlot == -2) actionLabel = lastBattleWon ? "ELEGIR MEJORA" : "GUARDAR Y SALIR";
+        else if (lastBattleWon && activeSlot >= 0) actionLabel = currentLevel > ActividadJuego.MAX_LEVELS ? "COMPLETADO" : "SIGUIENTE";
+        else actionLabel = lastBattleWon ? "OTRO DUELO" : "REINTENTAR";
 
         res.fontMedium.setColor(0xFFFFFFFF);
-        drawButton(canvas, btnResultAction, actionLabel,       0xBB004400, res.fontMedium);
-        drawButton(canvas, btnResultMenu,   "MENU PRINCIPAL",  0xBB440000, res.fontMedium);
+        drawButton(canvas, btnResultAction, actionLabel, 0xBB004400, res.fontMedium);
+        drawButton(canvas, btnResultMenu,   "MENU PRINCIPAL", 0xBB440000, res.fontMedium);
     }
 
     private void drawBuffSelect(Canvas canvas) {
@@ -478,13 +393,9 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
             float bw = 900f, bh = 120f, startY = 380f, gap = 150f;
             for (int i = 0; i < buffChoices.size(); i++) {
                 Buff b = buffChoices.get(i);
-                btnBuffs[i].set((WORLD_W - bw) / 2f, startY + i * gap,
-                        (WORLD_W + bw) / 2f, startY + i * gap + bh);
-                int color = b.rarity == Buff.Rarity.EPIC  ? 0xBB443300
-                        : b.rarity == Buff.Rarity.RARE  ? 0xBB003344 : 0xBB222222;
-                String label = b.getDescription() + " ("
-                        + (int)(b.value * (b.value < 1 ? 100 : 1))
-                        + (b.value < 1 ? "%" : "") + ")";
+                btnBuffs[i].set((WORLD_W - bw) / 2f, startY + i * gap, (WORLD_W + bw) / 2f, startY + i * gap + bh);
+                int color = b.rarity == Buff.Rarity.EPIC ? 0xBB443300 : b.rarity == Buff.Rarity.RARE ? 0xBB003344 : 0xBB222222;
+                String label = b.getDescription() + " (" + (int)(b.value * (b.value < 1 ? 100 : 1)) + (b.value < 1 ? "%" : "") + ")";
                 drawButton(canvas, btnBuffs[i], label, color, res.fontSmall);
             }
         }
@@ -501,13 +412,8 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
         drawButton(canvas, btnEventOk, "CONTINUAR", 0xBB004400, res.fontMedium);
     }
 
-    // ── HUD y barras ─────────────────────────────────────────────────────────
-
     private void drawBars(Canvas canvas) {
-        float barY   = 70f;
-        float margin = 80f;
-
-        // Nombres
+        float barY = 70f, margin = 80f;
         res.fontSmall.setColor(0xFFFFFFFF);
         res.fontSmall.setTextAlign(Paint.Align.LEFT);
         canvas.drawText(player1.name, margin, barY - 12f, res.fontSmall);
@@ -515,19 +421,13 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
         canvas.drawText(player2.name, WORLD_W - margin, barY - 12f, res.fontSmall);
         res.fontSmall.setTextAlign(Paint.Align.LEFT);
 
-        // Barras de vida
-        drawBar(canvas, margin, barY, BAR_WIDTH, BAR_HEIGHT,
-                player1.currentHealth / player1.maxHealth, 0xFF22BB22);
+        drawBar(canvas, margin, barY, BAR_WIDTH, BAR_HEIGHT, player1.currentHealth / player1.maxHealth, 0xFF22BB22);
         float x2 = WORLD_W - margin - BAR_WIDTH;
-        drawBar(canvas, x2, barY, BAR_WIDTH, BAR_HEIGHT,
-                player2.currentHealth / player2.maxHealth, 0xFF22BB22);
+        drawBar(canvas, x2, barY, BAR_WIDTH, BAR_HEIGHT, player2.currentHealth / player2.maxHealth, 0xFF22BB22);
 
-        // Barras de combo
         float comboY = barY + BAR_HEIGHT + 6f;
-        drawBar(canvas, margin, comboY, BAR_WIDTH, BAR_COMBO_H,
-                player1.comboCharge / Player.MAX_COMBO_CHARGE, 0xFFFFCC00);
-        drawBar(canvas, x2, comboY, BAR_WIDTH, BAR_COMBO_H,
-                player2.comboCharge / Player.MAX_COMBO_CHARGE, 0xFFFFCC00);
+        drawBar(canvas, margin, comboY, BAR_WIDTH, BAR_COMBO_H, player1.comboCharge / Player.MAX_COMBO_CHARGE, 0xFFFFCC00);
+        drawBar(canvas, x2, comboY, BAR_WIDTH, BAR_COMBO_H, player2.comboCharge / Player.MAX_COMBO_CHARGE, 0xFFFFCC00);
     }
 
     private void drawBar(Canvas canvas, float x, float y, float w, float h, float pct, int color) {
@@ -537,25 +437,19 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
     }
 
     private void drawHUD(Canvas canvas) {
-        // Botón pausa — compacto en el centro superior
         btnPause.set(WORLD_W / 2f - 80f, 12f, WORLD_W / 2f + 80f, 68f);
         drawButton(canvas, btnPause, "II", 0xBB222222, res.fontMedium);
 
         if (activeSlot == -2) {
-            // Tiempo restante justo debajo del botón pausa
             res.fontBig.setColor(0xFFFFFFFF);
-            drawCenteredText(canvas, String.format("%02d", (int) timeLeft), 145f, res.fontBig);
-            // Enemigos derrotados debajo del tiempo
+            drawCenteredText(canvas, String.format(Locale.getDefault(), "%02d", (int) timeLeft), 145f, res.fontBig);
             res.fontSmall.setColor(0xFFFFAAFF);
             drawCenteredText(canvas, "DERROTADOS: " + enemiesDefeated, 192f, res.fontSmall);
         }
     }
 
     private void drawAttackButtons(Canvas canvas) {
-        float right  = WORLD_W - 80f;
-        float bottom = WORLD_H - 80f;
-        float bs = 160f, gap = 20f;
-
+        float right = WORLD_W - 80f, bottom = WORLD_H - 80f, bs = 160f, gap = 20f;
         btnJump   .set(right - bs,           bottom - bs * 2 - gap, right,             bottom - bs - gap);
         btnKick   .set(right - bs,           bottom - bs,            right,             bottom);
         btnPunch  .set(right - bs * 2 - gap, bottom - bs,            right - bs - gap,  bottom);
@@ -567,79 +461,73 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
         drawButton(canvas, btnSpecial, "S",  0xBB111166, res.fontBig);
     }
 
-    // ── Touch ─────────────────────────────────────────────────────────────────
-
     @Override
     public boolean onTouchEvent(MotionEvent e) {
-        // El joystick recibe todos los eventos de movimiento en combate
         if (currentScreen == Screen.FIGHTING || currentScreen == Screen.PAUSED) {
             if (joystick != null) joystick.onTouchEvent(e);
         }
-
         int action = e.getActionMasked();
-        if (action != MotionEvent.ACTION_DOWN && action != MotionEvent.ACTION_POINTER_DOWN)
-            return true;
-
-        // Para multi-touch usar el índice del puntero que acaba de bajar
-        int idx = e.getActionIndex();
-        float[] pts = { e.getX(idx), e.getY(idx) };
-        inverseMatrix.mapPoints(pts);
-
-        handleTap(pts[0], pts[1]);
+        if (action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_POINTER_DOWN) {
+            int idx = e.getActionIndex();
+            float[] pts = { e.getX(idx), e.getY(idx) };
+            inverseMatrix.mapPoints(pts);
+            handleTap(pts[0], pts[1]);
+            performClick();
+        }
         return true;
     }
 
+    @Override
+    public boolean performClick() {
+        return super.performClick();
+    }
+
     private void handleTap(float wx, float wy) {
+        // En cualquier toque que pueda cambiar de pantalla, reseteamos la vibración por seguridad
+        if (currentScreen != Screen.FIGHTING) shakeTime = 0;
+
         switch (currentScreen) {
             case MAIN_MENU:
                 if (hit(btnStory,  wx, wy)) { pendingSlot =  0; currentScreen = Screen.CHAR_SELECT; }
                 if (hit(btnArcade, wx, wy)) { pendingSlot = -2; currentScreen = Screen.CHAR_SELECT; }
                 if (hit(btnDuel,   wx, wy)) { pendingSlot = -1; currentScreen = Screen.CHAR_SELECT; }
                 break;
-
             case CHAR_SELECT:
                 if (hit(btnBack, wx, wy)) { currentScreen = Screen.MAIN_MENU; break; }
-                for (int i = 0; i < btnChars.length; i++)
-                    if (hit(btnChars[i], wx, wy)) selectedCharIdx = i;
+                for (int i = 0; i < btnChars.length; i++) if (hit(btnChars[i], wx, wy)) selectedCharIdx = i;
                 if (pendingSlot == -1) {
-                    for (int i = 0; i < btnEnemyChars.length; i++)
-                        if (hit(btnEnemyChars[i], wx, wy)) selectedEnemyCharIdx = i;
+                    for (int i = 0; i < btnEnemyChars.length; i++) if (hit(btnEnemyChars[i], wx, wy)) selectedEnemyCharIdx = i;
                 }
-                if (hit(btnStageChange, wx, wy))
-                    selectedStageIdx = (selectedStageIdx + 1) % res.stages.length;
+                if (hit(btnStageChange, wx, wy)) selectedStageIdx = (selectedStageIdx + 1) % res.stages.length;
                 if (hit(btnLuchar, wx, wy)) startFight();
                 break;
-
             case LORE:
                 if (hit(btnBack, wx, wy)) { currentScreen = Screen.CHAR_SELECT; break; }
                 if (hit(btnStartFight, wx, wy)) currentScreen = Screen.FIGHTING;
                 break;
-
             case FIGHTING:
-                if (hit(btnPause,   wx, wy)) currentScreen = Screen.PAUSED;
+                if (hit(btnPause,   wx, wy)) { currentScreen = Screen.PAUSED; shakeTime = 0; }
                 if (hit(btnPunch,   wx, wy)) player1.attack(Player.AttackType.PUNCH);
                 if (hit(btnKick,    wx, wy)) player1.attack(Player.AttackType.KICK);
                 if (hit(btnSpecial, wx, wy)) player1.attack(Player.AttackType.SPECIAL);
                 if (hit(btnJump,    wx, wy)) player1.jump();
                 break;
-
             case PAUSED:
                 if (hit(btnResume,   wx, wy)) currentScreen = Screen.FIGHTING;
-                if (hit(btnExitMenu, wx, wy)) currentScreen = Screen.MAIN_MENU;
+                if (hit(btnExitMenu, wx, wy)) { currentScreen = Screen.MAIN_MENU; shakeTime = 0; }
                 break;
-
             case RESULT:
+                shakeTime = 0;
                 if (hit(btnResultAction, wx, wy)) onResultAction();
                 if (hit(btnResultMenu,   wx, wy)) currentScreen = Screen.MAIN_MENU;
                 break;
-
             case BUFF_SELECT:
+                shakeTime = 0;
                 if (buffChoices != null) {
                     for (int i = 0; i < buffChoices.size(); i++) {
                         if (hit(btnBuffs[i], wx, wy)) {
                             runManager.applyBuffToPlayer(buffChoices.get(i));
-                            for (int j = 0; j < buffChoices.size(); j++)
-                                if (j != i) runManager.addPendingEnemyBuff(buffChoices.get(j));
+                            for (int j = 0; j < buffChoices.size(); j++) if (j != i) runManager.addPendingEnemyBuff(buffChoices.get(j));
                             buffChoices = null;
                             checkForEvent();
                             break;
@@ -647,40 +535,30 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
                     }
                 }
                 break;
-
             case EVENT:
+                shakeTime = 0;
                 if (hit(btnEventOk, wx, wy)) { pendingEvent = null; resetCombat(); }
                 break;
         }
     }
 
-    // ── Lógica de pantallas ───────────────────────────────────────────────────
-
     private void startFight() {
-        activeSlot   = pendingSlot;
+        shakeTime = 0;
+        activeSlot = pendingSlot;
         currentLevel = 1;
         currentStage = res.stages[selectedStageIdx];
+        String[] chars = { "Liu Kang", "Goro", "Sub Zero" };
+        String p1Name = chars[selectedCharIdx], p2Name = resolveEnemyName();
 
-        String[] chars  = { "Liu Kang", "Goro", "Sub Zero" };
-        String   p1Name = chars[selectedCharIdx];
-        String   p2Name = resolveEnemyName();
-
-        player1 = new Player(p1Name, res.assets,
-                res.getFolderForChar(p1Name), res.getPrefixForChar(p1Name),
-                400f, currentStage.groundY + currentStage.getOffsetFor(p1Name),
-                true, WORLD_H);
-        player2 = new Player(p2Name, res.assets,
-                res.getFolderForChar(p2Name), res.getPrefixForChar(p2Name),
-                WORLD_W - 400f, currentStage.groundY + currentStage.getOffsetFor(p2Name),
-                false, WORLD_H);
+        player1 = new Player(p1Name, res.assets, res.getFolderForChar(p1Name), res.getPrefixForChar(p1Name),
+                650f, currentStage.groundY + currentStage.getOffsetFor(p1Name), true, WORLD_H);
+        player2 = new Player(p2Name, res.assets, res.getFolderForChar(p2Name), res.getPrefixForChar(p2Name),
+                WORLD_W - 650f, currentStage.groundY + currentStage.getOffsetFor(p2Name), false, WORLD_H);
         player1.opponent = player2;
         player2.opponent = player1;
-
         enemyAI = new EnemyAI(player2, player1);
         applyModeConfig();
-
         if (activeSlot == -2) runManager = new RunManager(player1);
-
         currentScreen = (activeSlot >= 0) ? Screen.LORE : Screen.FIGHTING;
     }
 
@@ -690,32 +568,24 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
             int idx = Math.min(currentLevel - 1, ActividadJuego.LEVEL_ENEMY_NAMES.length - 1);
             return ActividadJuego.LEVEL_ENEMY_NAMES[idx];
         }
-        if (activeSlot == -1) {
-            // Duelo: usar el personaje elegido por el usuario para el rival
-            return chars[selectedEnemyCharIdx];
-        }
-        // Arcade: enemigo aleatorio distinto al jugador
+        if (activeSlot == -1) return chars[selectedEnemyCharIdx];
         String p1Name = player1 != null ? player1.name : chars[selectedCharIdx];
         java.util.List<String> pool = new java.util.ArrayList<>();
         for (String c : chars) if (!c.equals(p1Name)) pool.add(c);
         return pool.get((int)(Math.random() * pool.size()));
     }
 
-    /** Actualiza el sprite del enemigo (player2) sin recrear el objeto. */
     private void spawnNewEnemy() {
         String p2Name = resolveEnemyName();
-        player2.name     = p2Name;
+        player2.name = p2Name;
         player2.charType = p2Name;
-        player2.loadAnimations(res.assets,
-                res.getFolderForChar(p2Name),
-                res.getPrefixForChar(p2Name),
-                WORLD_H);
+        player2.loadAnimations(res.assets, res.getFolderForChar(p2Name), res.getPrefixForChar(p2Name), WORLD_H);
     }
 
     private void applyModeConfig() {
         if (activeSlot >= 0) {
             int idx = Math.min(currentLevel - 1, ActividadJuego.LEVEL_ENEMY_NAMES.length - 1);
-            player2.maxHealth     = ActividadJuego.LEVEL_ENEMY_HEALTH[idx];
+            player2.maxHealth = ActividadJuego.LEVEL_ENEMY_HEALTH[idx];
             player2.currentHealth = player2.maxHealth;
             enemyAI.setSpeed(ActividadJuego.LEVEL_ENEMY_SPEED[idx]);
             enemyAI.setDamage(ActividadJuego.LEVEL_ENEMY_DAMAGE[idx]);
@@ -731,15 +601,17 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
     }
 
     private void showResult(boolean won) {
+        shakeTime = 0;
         lastBattleWon = won;
         currentScreen = Screen.RESULT;
-        if (activeSlot == -2 && won)  { enemiesDefeated++; runManager.onFightWon(); }
+        if (activeSlot == -2 && won) { enemiesDefeated++; runManager.onFightWon(); }
         if (activeSlot == -2 && !won) saveArcadeScore();
     }
 
     private void onResultAction() {
+        shakeTime = 0;
         if (activeSlot == -2 && lastBattleWon) {
-            buffChoices   = runManager.getRandomBuffChoices();
+            buffChoices = runManager.getRandomBuffChoices();
             currentScreen = Screen.BUFF_SELECT;
         } else if (activeSlot == -2 && !lastBattleWon) {
             currentScreen = Screen.MAIN_MENU;
@@ -759,36 +631,30 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
     }
 
     private void resetCombat() {
+        shakeTime = 0;
         pendingResult = false;
         if (lastBattleWon && activeSlot >= 0) {
             currentLevel++;
             if (currentLevel > ActividadJuego.MAX_LEVELS) { currentScreen = Screen.MAIN_MENU; return; }
             applyModeConfig();
         }
-
-        // Historia: enemigo cambia según nivel. Arcade: enemigo aleatorio nuevo cada ronda.
         if (activeSlot != -1) spawnNewEnemy();
-
         player1.forceIdle();
         player2.forceIdle();
         player1.currentHealth = player1.maxHealth;
-        player1.comboCharge   = 0;
+        player1.comboCharge = 0;
         player2.currentHealth = player2.maxHealth;
-        player2.comboCharge   = 0;
-        player1.x = 400f;        player1.y = player1.groundY;
-        player2.x = WORLD_W - 400f; player2.y = player2.groundY;
-        player1.velocityY = 0;   player2.velocityY = 0;
+        player2.comboCharge = 0;
+        player1.x = 650f; player1.y = player1.groundY;
+        player2.x = WORLD_W - 650f; player2.y = player2.groundY;
+        player1.velocityY = 0; player2.velocityY = 0;
         timeLeft = INITIAL_TIME;
-
         if (activeSlot == -2 && runManager != null) runManager.applyEnemyScaling(enemyAI, player2);
         currentScreen = (activeSlot >= 0) ? Screen.LORE : Screen.FIGHTING;
     }
 
-    // ── Puntuación arcade ─────────────────────────────────────────────────────
-
     private void saveArcadeScore() {
-        int[]   topE = new int[6];
-        float[] topT = new float[6];
+        int[] topE = new int[6]; float[] topT = new float[6];
         for (int i = 0; i < 5; i++) {
             topE[i] = prefs.getInt("arcade_enemies_" + i, 0);
             topT[i] = prefs.getFloat("arcade_time_"  + i, 0f);
@@ -798,7 +664,7 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
             for (int j = i + 1; j < 6; j++)
                 if (topT[j] > topT[i]) {
                     float tt = topT[i]; topT[i] = topT[j]; topT[j] = tt;
-                    int   te = topE[i]; topE[i] = topE[j]; topE[j] = te;
+                    int te = topE[i]; topE[i] = topE[j]; topE[j] = te;
                 }
         SharedPreferences.Editor ed = prefs.edit();
         for (int i = 0; i < 5; i++) {
@@ -808,12 +674,8 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
         ed.apply();
     }
 
-    // ── Música ────────────────────────────────────────────────────────────────
-
     private void startMusic() {
-        try {
-            android.content.res.AssetFileDescriptor afd =
-                    activity.getAssets().openFd("sounds/Techno_Syndrome.mp3");
+        try (AssetFileDescriptor afd = activity.getAssets().openFd("sounds/Techno_Syndrome.mp3")) {
             music = new MediaPlayer();
             music.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
             music.setLooping(true);
@@ -827,8 +689,6 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
     public void resumeMusic() { if (music != null && !music.isPlaying()) music.start(); }
     public void releaseMusic() { if (music != null) { music.release(); music = null; } }
 
-    // ── Helpers de dibujo ─────────────────────────────────────────────────────
-
     private void drawBackButton(Canvas canvas) {
         drawButton(canvas, btnBack, "←", 0xBB333333, res.fontBig);
     }
@@ -836,12 +696,8 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
     private void drawButton(Canvas canvas, RectF r, String label, int bgColor, Paint font) {
         Paint bg = new Paint(); bg.setColor(bgColor);
         canvas.drawRoundRect(r, 24f, 24f, bg);
-        Paint border = new Paint();
-        border.setColor(0x88FFFFFF);
-        border.setStyle(Paint.Style.STROKE);
-        border.setStrokeWidth(3f);
+        Paint border = new Paint(); border.setColor(0x88FFFFFF); border.setStyle(Paint.Style.STROKE); border.setStrokeWidth(3f);
         canvas.drawRoundRect(r, 24f, 24f, border);
-
         Paint.FontMetrics fm = font.getFontMetrics();
         float textY = r.centerY() - (fm.ascent + fm.descent) / 2f;
         font.setTextAlign(Paint.Align.CENTER);

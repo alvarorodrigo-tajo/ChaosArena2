@@ -9,6 +9,11 @@ import android.graphics.RectF;
 
 public class Player {
 
+    // ── Veneno ────────────────────────────────────────────────────────────
+    public boolean poisoned = false;
+    public float poisonDuration = 0f;
+    public float poisonTimeLeft = 0f;
+
     public enum AttackType { PUNCH, KICK, SPECIAL }
     public enum State      { IDLE, WALK, ATTACKING, HURT, DEAD }
 
@@ -107,8 +112,6 @@ public class Player {
         hasDeathAnim = deathAnim.getFrameWidth() > 1;
         hasHurtAnim  = hurtAnim.getFrameWidth()  > 1;
 
-        // Si no hay animación de patada, usar la animación de carrera como "ataque de carga"
-        // → visualmente completamente distinta al ataque normal (dash/embestida)
         if (kickVisualAnim != null && kickVisualAnim != kickAnim) kickVisualAnim.recycle();
         kickVisualAnim = hasKickAnim ? kickAnim
                 : SpriteAnimation.load(assets, folder, charPrefix + "_run", 0.07f, SpriteAnimation.PlayMode.NORMAL);
@@ -117,49 +120,55 @@ public class Player {
     }
 
     private void calibrateScale(String prefix) {
-        // drawOffsetY = -(idle_frame_h_px * scale): alinea los pies del sprite con groundY
         if (prefix.contains("subzero")) {
-            scale = 4.0f; drawOffsetX = 0f; drawOffsetY = -636f;  // ~159px
-            // sprite 199x191px, contenido real X=57..113 Y=41..159
-            hbWMult   = 0.105f;   // 199*4*0.105 ≈ 84px  (igual que goro)
-            hbHMult   = 0.490f;   // 191*4*0.490 ≈ 374px (igual que goro)
-            hbOffsetX = -58f;     // centro del personaje 14.5px izq del centro del frame → 14.5*4=58 canvas px
-            hbOffsetY = 164f;     // 41px vacíos en la parte superior del frame → 41*4=164 canvas px
+            scale = 4.0f; drawOffsetX = 0f; drawOffsetY = -636f;
+            hbWMult   = 0.105f;
+            hbHMult   = 0.490f;
+            hbOffsetX = -58f;
+            hbOffsetY = 164f;
         } else if (prefix.contains("goro")) {
-            scale = 4.0f; drawOffsetX = 0f; drawOffsetY = -472f;  // ~118px
-            hasHurtAnim = false;  // takehit tiene animación de caída no deseada
+            scale = 4.0f; drawOffsetX = 0f; drawOffsetY = -472f;
+            hasHurtAnim = false;
         } else {
-            scale = 4.0f; drawOffsetX = 0f; drawOffsetY = -396f;  // ~99px (liu_kang)
+            scale = 4.0f; drawOffsetX = 0f; drawOffsetY = -396f;
         }
     }
 
-    /** Y en coordenadas canvas-mundo donde está el centro del torso (para efectos visuales). */
     public float getBodyCanvasY() {
         float top = (worldHeight - y) + drawOffsetY;
         return top + idleAnim.getFrameHeight() * scale * 0.35f;
     }
 
-    // ── Update (lógica, sin dibujo) ───────────────────────────────────────────
+    // ── Update ────────────────────────────────────────────────────────────────
 
     public void update(float delta) {
-        // Muerto: solo avanzar el timer de muerte, nada más
         if (currentState == State.DEAD) { deathTime += delta; return; }
+
+        // Lógica de Veneno
+        if (poisoned && poisonDuration > 0) {
+            float damagePerSecond = maxHealth / poisonDuration;
+            currentHealth -= damagePerSecond * delta;
+            poisonTimeLeft -= delta;
+            if (poisonTimeLeft <= 0) {
+                poisoned = false;
+            }
+            if (currentHealth < 0) {
+                currentHealth = 0;
+            }
+        }
 
         // Gravedad
         velocityY += GRAVITY * delta;
         y         += velocityY * delta;
         if (y <= groundY) { y = groundY; velocityY = 0; }
 
-        // Timer de salto (solo cuando está en el aire)
         if (!isGrounded()) jumpTime += delta;
 
-        // Estado de daño
         if (currentState == State.HURT) {
             hurtTime += delta;
             if (hurtAnim.isFinished(hurtTime)) currentState = State.IDLE;
         }
 
-        // Regeneración
         if (regenPerSec > 0 && currentHealth > 0 && currentHealth < maxHealth)
             currentHealth = Math.min(maxHealth, currentHealth + regenPerSec * delta);
 
@@ -172,7 +181,6 @@ public class Player {
 
         attackTime += delta;
 
-        // Si no hay animación de patada, usar punchAnim como referencia de duración
         float kickDuration = hasKickAnim ? kickAnim.getDuration() : punchAnim.getDuration();
         float totalDuration = punchAnim.getDuration();
         if (currentAttackType == AttackType.SPECIAL)
@@ -206,8 +214,6 @@ public class Player {
             }
         }
     }
-
-    // ── Acciones ──────────────────────────────────────────────────────────────
 
     public void jump() {
         if (isGrounded() && currentState != State.HURT) { velocityY = JUMP_FORCE; jumpTime = 0; }
@@ -252,8 +258,6 @@ public class Player {
     public void forceIdle()        { currentState = State.IDLE; attackTime = 0; hurtTime = 0; }
     public void startDeath()       { currentState = State.DEAD; deathTime = 0; velocityY = 0; }
 
-    // ── Hitbox y colisión ─────────────────────────────────────────────────────
-
     public RectF getHitbox() {
         float hbW = idleAnim.getFrameWidth()  * scale * hbWMult;
         float hbH = idleAnim.getFrameHeight() * scale * hbHMult;
@@ -273,21 +277,16 @@ public class Player {
         return RectF.intersects(area, other.getHitbox());
     }
 
-    // ── Dibujo ────────────────────────────────────────────────────────────────
-
     public void draw(Canvas canvas) {
         Bitmap frame = currentFrame();
         if (frame == null || frame.isRecycled()) return;
 
         float pivotHalfW = idleAnim.getFrameWidth() * scale / 2f;
-
         float drawX = x - pivotHalfW + drawOffsetX;
-        // La física usa Y-arriba (0=suelo), el canvas usa Y-abajo: convertir antes de dibujar
         float drawY = (worldHeight - y) + drawOffsetY;
 
         matrix.reset();
         if (!facingRight) {
-            // Espejo: usar ancho SIN escalar en postTranslate; postScale se aplica después
             matrix.setScale(-1, 1);
             matrix.postTranslate(frame.getWidth(), 0);
         }
@@ -314,13 +313,12 @@ public class Player {
     private Bitmap currentFrame() {
         if (currentState == State.DEAD) {
             if (hasDeathAnim) return deathAnim.getKeyFrame(deathTime);
-            if (hasHurtAnim)  return hurtAnim.getKeyFrame(hurtAnim.getDuration()); // último frame hurt
-            return idleAnim.getKeyFrame(0); // sin death ni hurt → congelado en pose idle
+            if (hasHurtAnim)  return hurtAnim.getKeyFrame(hurtAnim.getDuration());
+            return idleAnim.getKeyFrame(0);
         }
         if (currentState == State.HURT)
             return hasHurtAnim ? hurtAnim.getKeyFrame(hurtTime) : idleAnim.getKeyFrame(0);
         if (currentState == State.ATTACKING) {
-            // kickVisualAnim: kickAnim si existe, o versión rápida de attack1 como visual distinto
             SpriteAnimation kick = kickVisualAnim;
             if (currentAttackType == AttackType.SPECIAL) {
                 float pd = punchAnim.getDuration();
@@ -337,15 +335,11 @@ public class Player {
         return idleAnim.getKeyFrame(stateTime);
     }
 
-    // ── Getters ───────────────────────────────────────────────────────────────
-
     public boolean    isAttacking()          { return currentState == State.ATTACKING; }
     public boolean    isHurt()               { return currentState == State.HURT; }
     public boolean    isDead()               { return currentState == State.DEAD; }
     public boolean    isGrounded()           { return y <= groundY + 5; }
     public AttackType getCurrentAttackType() { return currentAttackType; }
-
-    // ── Dispose ───────────────────────────────────────────────────────────────
 
     public void recycle() {
         walkAnim.recycle();  idleAnim.recycle();   punchAnim.recycle();
@@ -354,4 +348,3 @@ public class Player {
         if (kickVisualAnim != null && kickVisualAnim != kickAnim) kickVisualAnim.recycle();
     }
 }
-
