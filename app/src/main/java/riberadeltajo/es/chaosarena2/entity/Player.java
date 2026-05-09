@@ -304,7 +304,7 @@ public class Player {
 
         if (currentState == State.ATTACKING) {
             float reach = (currentAttackType == AttackType.KICK)    ? 400
-                        : (currentAttackType == AttackType.SPECIAL)  ? 700 : 300;
+                        : (currentAttackType == AttackType.SPECIAL)  ? 350 : 300;
             float ax = facingRight ? hb.right : hb.left - reach;
             canvas.drawRect(ax, hb.top, ax + reach, hb.bottom, dbgAttackPaint);
         }
