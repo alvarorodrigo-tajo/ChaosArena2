@@ -71,6 +71,13 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
     private float shakeTime      = 0f;
     private float shakeIntensity = 0f;
 
+    // --- Efecto Hit Flash (desactivado) ---
+    private float hitFlashTimer = 0f;
+    private float hitFlashX     = 0f;
+    private float hitFlashY     = 0f;
+    private static final float HIT_FLASH_DURATION = 0.10f;
+    private final Paint paintHitFlash = new Paint(Paint.ANTI_ALIAS_FLAG);
+
     private final RectF btnStory  = new RectF();
     private final RectF btnArcade = new RectF();
     private final RectF btnDuel   = new RectF();
@@ -182,6 +189,7 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
                 shakeIntensity = 0;
             }
         }
+        if (hitFlashTimer > 0) hitFlashTimer = Math.max(0, hitFlashTimer - delta);
         if (currentScreen == Screen.FIGHTING) updateFighting(delta);
     }
 
@@ -234,9 +242,15 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
         if (ix < -0.2f) player1.move(-MOVE_SPEED * player1.speedMultiplier * delta);
         player1.updateDirection(ix > 0.2f, ix < -0.2f);
 
+        float prevH1 = player1.currentHealth;
+        float prevH2 = player2.currentHealth;
+
         player1.update(delta); player1.updateAttack(delta);
         player2.update(delta); player2.updateAttack(delta);
         enemyAI.update(delta);
+
+        if (player1.currentHealth < prevH1) { hitFlashTimer = HIT_FLASH_DURATION; RectF hb1 = player1.getHitbox(); hitFlashX = hb1.centerX(); hitFlashY = hb1.centerY(); }
+        if (player2.currentHealth < prevH2) { hitFlashTimer = HIT_FLASH_DURATION; RectF hb2 = player2.getHitbox(); hitFlashX = hb2.centerX(); hitFlashY = hb2.centerY(); }
 
         // Lógica de vibración al usar ataque especial
         if ((player1.isAttacking() && player1.getCurrentAttackType() == Player.AttackType.SPECIAL) ||
@@ -343,6 +357,13 @@ public class Juego extends SurfaceView implements SurfaceHolder.Callback {
         canvas.drawBitmap(currentStage.bgBitmap, null, new RectF(-pShiftX, 0, WORLD_W + 300f - pShiftX, WORLD_H), paintBitmap);
         player1.draw(canvas);
         player2.draw(canvas);
+
+//        if (hitFlashTimer > 0) {
+//            float alpha = hitFlashTimer / HIT_FLASH_DURATION;
+//            paintHitFlash.setColor(0xFFFFFF00);
+//            paintHitFlash.setAlpha((int)(220 * alpha));
+//            canvas.drawCircle(hitFlashX, hitFlashY, 120f * (1.5f - alpha), paintHitFlash);
+//        }
 
         // Efecto visual rojo si alguien lanza especial
         if ((player1.isAttacking() && player1.getCurrentAttackType() == Player.AttackType.SPECIAL) ||
